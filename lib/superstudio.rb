@@ -105,10 +105,10 @@ module Superstudio
         # split on a hash character - the first piece is the file name, the second will, as of yet, be ignored
         file_name = json_hash["$ref"].split('#')[0]
         referenced_contents = parse_json_schema(file_name)
+        # replace reference keys in the referenced contents
+        referenced_contents = replace_reference_keys(referenced_contents)
         json_hash.delete("$ref")
         json_hash = json_hash.merge(referenced_contents)
-        # let's do it again to see if there are more references
-        replace_reference_keys(json_hash)
       end
       return json_hash
     end
