@@ -63,6 +63,15 @@ module Superstudio
           end
         end
 
+        if key == "required"
+          # this will be especially important since according to http://spacetelescope.github.io/understanding-json-schema/reference/object.html
+          # each required string must be unique - which gives us an opportunity to use much shorter
+        end
+
+        if key == "patternProperties"
+          # this will let this library output uniquely keyed properties - which will be especially useful if we want to create ID keyed hashes
+        end
+
         if json_hash[key].is_a?(Hash)
           new_path_array = path_array.dup
           new_depth = depth
@@ -228,7 +237,8 @@ end
 
 # version 0.6.x - support arrays of objects
 # version 0.7.x - automatically generate data maps with all expected variables
-# version 0.8.x - support all settings for current draft of json schema
+# version 0.8.x - support patternProperties
+# version 0.9.x - support all settings for current draft of json schema
 # version 1.0.x - test suite
 
 # At some point I will address the problem of referencing schemas that define a node to be used, and of using references that are not on the same server
