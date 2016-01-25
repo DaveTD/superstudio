@@ -16,28 +16,41 @@ module Superstudio
           column_type = column.type
           column_type = :string if [:datetime].include? column.type
           column_type = :number if [:decimal].include? column.type
-
           model_columns[column.name] = column_type
         end
 
-        file_data = %Q({
+        file_data = template_header
+        model_columns.each do |name, type|
+          file_data << data_column(name, type)
+        end
+
+        file_data = file_data.chomp(",")
+        file_data << template_footer
+
+        model_klass_name = model_klass.name.gsub(":", "")
+        create_file "app/json_schemas/#{model_klass_name}.json.schema", file_data
+      end
+
+      private
+      def template_header
+      %Q({
   "$schema": "http://json-schema.org/draft-04/schema#",
-  "title": "Get a patient",
   "type": "object",
   "properties": {)
+      end
 
-      model_columns.each do |name, type|
-        file_data << %Q(
+      def data_column(name, type)
+      %Q(
     "#{name}": {
       "type": "#{type}"
     },)
       end
-      file_data = file_data.chomp(",")
 
-      file_data << "
+      def template_footer
+      %Q(
   }
-}"
-        create_file "app/json_schemas/#{model_klass}.json.schema", file_data
+  "required": ["id"]
+})
       end
     end
   end

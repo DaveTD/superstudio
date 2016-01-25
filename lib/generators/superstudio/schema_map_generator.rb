@@ -22,7 +22,6 @@ Interpreted schema has the following data bodies. Multiple bodies indicates arra
         interpreted_hashes = []
 
         interpreted_schema.template_bodies.each do |key, template|
-          # This is how JSON parse works? Thanks Obama.
           inter = JSON.parse("{" << template.gsub("%", "").slice(1..template.length).chomp("}").gsub('{', '"').gsub('}', '"') << "}")
           temp_string = PP.pp(inter, '')
           interpreted_hashes << inter
