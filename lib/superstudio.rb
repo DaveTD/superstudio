@@ -1,22 +1,28 @@
+require 'superstudio.bundle'
+
 module Superstudio
   class SqlJsonBuilder
-    attr_accessor :sql_columns, :row_being_used, :json_result, :schema, :template_bodies, :template_types, :array_paths, :json_nodes
+    attr_accessor :sql_columns, :json_result, :schema, :template_bodies, :template_types, :array_paths, :json_nodes, :required_columns, :human_to_internal
 
     def initialize(query, file_name = nil)
       file_class_name = self.class.name
       file_class_name.slice!("Mapper")
-      file_name ||= file_class_name.snakecase << ".json.schema"
+      file_name ||= file_class_name.underscore << ".json.schema"
 
       @schema = parse_json_schema(file_name)
-      @sql_columns, @row_being_used, @array_paths = [], [], []
+      @sql_columns, @row_being_used = [], []
       @json_result = ""
-      @json_nodes = {}
+      @json_nodes, @required_columns = {}, {}
+
+      @human_readable_tags, @internal_use_tags, @quoted_tags, @depth_tags = [], [], [], []
+      @type_2_paths, @type_3_paths, @type_4_paths, @type_5_paths = [], [], [], []
 
       json_schema_interpretation = interpret_json_schema(@schema)
 
       if query.present?
         result_set = get_sql_results(query)
         create_template(json_schema_interpretation)
+        set_human_to_internal_mappings(json_schema_interpretation)
         assemble_json(result_set, json_schema_interpretation)
       else
         create_template(json_schema_interpretation)
@@ -46,11 +52,15 @@ module Superstudio
     end
 
     def value_by_column_name(name)
-      return @row_being_used[@sql_columns.index(name)]
+      value = @row_being_used[@sql_columns.index(name)]
+      value ||= ""
+      return value
     end
 
     def value_by_column_number(number)
-      return @row_being_used[number]
+      value = @row_being_used[number]
+      value ||= ""
+      return value
     end
 
     def interpret_json_schema(json_hash, depth = 0, path_array = [], expected_mappings = [], node_name = 'root')
@@ -65,7 +75,7 @@ module Superstudio
 
         if key == "required"
           # this will be especially important since according to http://spacetelescope.github.io/understanding-json-schema/reference/object.html
-          # each required string must be unique - which gives us an opportunity to use much shorter
+          # each required string must be unique - which gives us an opportunity to use much shorter keys
         end
 
         if key == "patternProperties"
@@ -75,9 +85,10 @@ module Superstudio
         if json_hash[key].is_a?(Hash)
           new_path_array = path_array.dup
           new_depth = depth
-          if node_name != "properties" && node_name != "items"
+          if node_name != "properties" && node_name != "items" && node_name != "dependencies"
             new_path_array << node_name
             new_depth = new_depth + 1
+            @type_2_paths << new_path_array
           end
           expected_mappings << interpret_json_schema(json_hash[key], new_depth, new_path_array, [], key)
         end
@@ -85,7 +96,17 @@ module Superstudio
         if key == "items"
           new_path_array = path_array.dup
           new_path_array << node_name
-          array_paths.push(new_path_array)
+          if json_hash[key].is_a?(Array)
+            # solve this later
+          else
+            # detect if this is an array of objects or values
+            if json_hash.count == 2
+
+            else
+
+            end
+          end
+
           expected_mappings << {depth: depth, path: path_array, name: node_name, node_type: json_hash[key]}
         end
       end
@@ -104,147 +125,166 @@ module Superstudio
       return json_hash
     end
 
+    def set_human_to_internal_mappings(expected_mappings)
+      fork_nodes = expected_mappings.uniq { |i| i[:path] }
+      max_depth = expected_mappings.max_by { |x| x[:depth] }[:depth]
+      internal_fork_numbers = convert_fork_paths_to_base_route_numbers(fork_nodes, max_depth)
+      depth_counter = 0
+      while depth_counter <= max_depth
+        # Assign all internal numbers to their respective human-readable forms
+        objects_at_depth = expected_mappings.select { |j| j[:depth] == depth_counter }
+        forks_at_depth = internal_fork_numbers.select { |k,v| v[:depth] == depth_counter }
+        type_1_count, type_3_count, type_4_count, type_5_count = 0
+
+        objects_at_depth.each do |candidate|
+          forks_at_depth.each do |p|
+            if candidate[:path] == p[0]
+              # When we have a match, determine the type that this object is, by checking the non-1 arrays
+
+              # Add the internal path to the internal mapping
+              type_1_count += 1
+              add_to_describe_arrays("#{candidate[:path].join("_B_")}_P_#{candidate[:name]}", p[1][:internal_path], "1.#{type_1_count}", candidate[:node_type], candidate[:depth])
+            end
+          end
+          # Unless there are no forks for this depth, then we're at the root node, and we should do this differently
+          if !forks_at_depth.present?
+            # Check the type, increment, send
+            type_1_count += 1
+            add_to_describe_arrays("#{candidate[:path].join("_B_")}_P_#{candidate[:name]}", "", "1.#{type_1_count}", candidate[:node_type], candidate[:depth])
+          end
+        end
+        depth_counter += 1
+      end
+    end
+
+    def add_to_describe_arrays(human_route, parent_path, item_path, node_type, depth)
+      @human_readable_tags << human_route
+      @depth_tags << depth
+      if node_type == "string"
+        @quoted_tags << 1
+      else
+        @quoted_tags << 0
+      end
+
+      if parent_path.present?
+        @internal_use_tags << "#{parent_path}-#{item_path}"
+      else
+        @internal_use_tags << "#{item_path}"
+      end
+    end
+
+    def convert_fork_paths_to_base_route_numbers(fork_nodes, max_depth)
+      depth_counter = 0
+      internal_fork_numbers = {}
+
+      while depth_counter <= max_depth
+        two_at_depth_counter, four_at_depth_counter, five_at_depth_counter = 0
+        objects_at_depth = fork_nodes.select {|j| j[:depth] == depth_counter}
+        possible_parents = fork_nodes.select {|j| j[:depth] == (depth_counter - 1)}
+        objects_at_depth.each do |o|
+
+          parent = nil
+          if o[:path].join("_B_") == 'root'
+            internal_fork_numbers[o[:path]] = { internal_path: '', depth: o[:depth] }
+            break
+          end
+
+          if @type_2_paths.include?(o[:path])
+            two_at_depth_counter += 1
+            # here we need to record that the path
+            if possible_parents
+              # find parent, there will be one that starts with this path
+              possible_parents.each do |pp|
+                parent = pp if o[:path][0..-2] = pp[:path]
+              end
+            end
+
+            internal_path = ""
+            internal_path = "#{internal_fork_numbers[parent[:path]][:internal_path]}" if parent.present?
+            if parent.present? && parent[:path].join("_B_") != 'root'
+              internal_path << "-" # if parent.present? && parent[:path] != 'root'
+            end
+            internal_path << "2.#{two_at_depth_counter}"
+            internal_fork_numbers[o[:path]] = { internal_path: internal_path, depth: o[:depth] }
+          end
+
+          if @type_3_paths.include?(o[:path])
+
+          end
+
+          if @type_4_paths.include?(o[:path])
+
+          end
+
+          if @type_5_paths.include?(o[:path])
+
+          end
+
+        end
+
+        depth_counter += 1
+      end
+
+      return internal_fork_numbers
+    end
 
     def create_template(expected_mappings)
       fork_nodes = expected_mappings.uniq { |i| i[:path] }
       max_depth = expected_mappings.max_by { |x| x[:depth] }[:depth]
-      nested_objects = {}
-
-      template_nodes = []
-      @template_types = {}
 
       @template_bodies = {}
-      @array_paths.each do |array_path|
-        @template_bodies[array_path] = ""
-      end
 
       while max_depth != 0
         objects_at_depth = fork_nodes.select {|j| j[:depth] == max_depth}
         objects_at_depth.each do |object|
-          object_path_string = object[:path].join("_")
-
+          object_path_string = object[:path].join("_B_")
           object_properties = expected_mappings.select { |mappings| mappings[:path] == object[:path] }
           object_string = "{"
           object_properties.each do |property, index|
-            expected_hash_key = "#{object_path_string}_#{property[:name]}"
-            object_string << "\"#{property[:name]}\":%{#{expected_hash_key}},"
-            template_nodes << expected_hash_key
-            @template_types[expected_hash_key.to_sym] = property[:node_type]
-          end
-          # check for and add nested objects
-          nested_objects.each do |nested_object|
-            if object[:path] == (nested_object[0].slice(0, object[:path].length)) && (object[:path].length + 1 == nested_object[0].length)
-              object_string << "\"#{nested_object[0].slice(object[:path].length)}\":"
-              object_string << "#{nested_object[1]},"
-            end
+            expected_hash_key = "#{object_path_string}_P_#{property[:name]}"
+            object_string << "\"#{property[:name]}\":{#{expected_hash_key}},"
           end
           object_string = object_string.chomp(",")
           object_string << "}"
-          # if this isn't the root node, put it in the nested_objects hash
-          if max_depth > 1
-            if @template_bodies.has_key?(object[:path])
-              @template_bodies[object[:path]] = object_string
-            else
-              nested_objects[object[:path]] = object_string
-            end
-          else
-            @template_bodies[['root']] = object_string
-          end
+
+          @template_bodies[object[:path]] = object_string
         end
         max_depth = max_depth - 1
       end
     end
 
+    def create_internal_row
+      working_row = []
+
+      @human_readable_tags.each_with_index do |value, index|
+        #puts "#{@internal_use_tags[index]} -- #{@json_nodes[value.to_sym]}"
+        working_row << (@json_nodes[value.to_sym].to_s << '\0')
+      end
+
+      return working_row
+    end
+
     def assemble_json(result_set, expected_mappings)
       @sql_columns = result_set.columns
-      complete_templates = Hash.new{|hash, key| hash[key] = Hash.new}
 
-      # map row comes from the inheriting class
+      broker = Superstudio::JsonBroker.new()
+      broker.set_mapper(@internal_use_tags)
+      broker.set_row_count(result_set.count)
+      broker.set_quotes(@quoted_tags)
+      broker.set_depths(@depth_tags)
+      # We need to have map_row know what the current row is without passing it in
+      # Use @row_being_used for that, piggyback off that for broker consuming that row
       result_set.rows.each do |row|
         @row_being_used = row
         @json_nodes = {}
         map_row
-        row_hash = clean_data_types(@json_nodes, @template_types)
-        key_depth = 0
-        # Sort the template bodies so that the longest keys come first
-        @template_bodies = @template_bodies.sort{ |k,v| k.length }.reverse.to_h
 
-        @template_bodies.each do |key, template|
-          key_eliminator = ''
-          working_hash = row_hash.dup
-          local_values = {}
-          # Find the depth of this key
-          key_depth = key.length
-          # Find all other keys of that depth
-          keys_at_depth = @template_bodies.select{ |k,v| k.length == key_depth }
-          # Eliminate variables of that depth, or deeper
-          keys_at_depth.keys.each do |depth_key|
-            key_eliminator = depth_key.join('_')
-            local_values = working_hash.select { |k,v| k.to_s.start_with?(key_eliminator) }
-            working_hash.delete_if { |k,v| k.to_s.start_with?(key_eliminator)}
-          end
-
-          # Key on the remaining values
-          valued_key = ""
-          working_hash.each do |key, value|
-            valued_key << value.to_s << "_"
-          end
-          valued_key = valued_key.chomp("_").to_sym
-
-          # set the array key value for this row to the new, generated key, as a replacable template
-          # this goes in the row_hash, because it will be copied down into further templates with shorter keys
-          # where the key_eliminator is this array (for this row only)
-          row_hash[key_eliminator.to_sym] = "[%{#{valued_key}}]"
-
-          # fill in the array values for the row_hash
-          complete_template = template % local_values
-
-          # Merge this template with any other templates of that key - this is another item in that array
-          if complete_templates[key_depth][valued_key].present?
-            if !complete_templates[key_depth][valued_key].include?(complete_template)
-              complete_templates[key_depth][valued_key] = complete_templates[key_depth][valued_key] << "," << complete_template
-            end
-          else
-            complete_templates[key_depth][valued_key] = complete_template
-          end
-        end
+        working_row = create_internal_row()
+        broker.consume_row(working_row)
       end
-      # Merge templates together
-      max_depth = complete_templates.max_by{|k,v| k}.first
-      while max_depth > 0
-        complete_templates[max_depth].each do |k,v|
-          complete_templates[max_depth][k] = complete_templates[max_depth][k] % complete_templates[max_depth + 1]
-        end
-        max_depth -= 1
-      end
-      @json_result << complete_templates[1].values.join(',')
+
+      @json_result = broker.finalize_json
     end
 
-    def clean_data_types(row_hash, template_types)
-      row_hash.keys.each do |key|
-        if template_types[key] == "string" && row_hash[key] != nil
-          row_hash[key] = "\"#{row_hash[key]}\""
-          row_hash[key] = row_hash[key].gsub("%", "%%")
-        end
-        row_hash[key] = "null" if row_hash[key].nil?
-      end
-      return row_hash
-    end
   end
 end
-
-# Development Plan
-
-# version 0.6.x - support arrays of objects
-# version 0.7.x - automatically generate data maps with all expected variables
-# version 0.8.x - support patternProperties
-# version 0.9.x - support all settings for current draft of json schema
-# version 1.0.x - test suite
-
-# At some point I will address the problem of referencing schemas that define a node to be used, and of using references that are not on the same server
-# Each row returned from an SQL query will be used to populate these variables in a hash
-    # There is a chance that using more c-like notation like %s and %i would improve speeds
-    # Need to test out a mapping between these templates and an ordering of items instead to
-    # see if performance improves
-# Eventually I'll take a look at having variable keys
-# Eventually I'll look at performance for replacing all this array/hash/string stuff with a few tree structure objects

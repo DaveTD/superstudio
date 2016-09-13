@@ -27,7 +27,7 @@ module Superstudio
         file_data = file_data.chomp(",")
         file_data << template_footer
 
-        model_klass_name = model_klass.name.gsub(":", "")
+        model_klass_name = model_klass.name.gsub(":", "").underscore
         create_file "app/json_schemas/#{model_klass_name}.json.schema", file_data
       end
 
@@ -47,8 +47,7 @@ module Superstudio
       end
 
       def template_footer
-      %Q(
-  }
+      %Q(},
   "required": ["id"]
 })
       end
