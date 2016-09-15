@@ -19,7 +19,7 @@ typedef struct HashListNode
   struct HashListNode* next;
   struct HashListNode* bucket_next;
   struct HashListNode* bucket_previous;
-  struct ArrayObjectJSON* related_JSON_array;
+  struct JSONObject* related_JSON_object;
 } HashListNode;
 
 void hl_initialize(HashList *list, unsigned long query_rows);

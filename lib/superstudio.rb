@@ -14,7 +14,7 @@ module Superstudio
       @json_result = ""
       @json_nodes, @required_columns = {}, {}
 
-      @human_readable_tags, @internal_use_tags, @quoted_tags, @depth_tags = [], [], [], []
+      @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags = [], [], [], [], [], []
       @type_2_paths, @type_3_paths, @type_4_paths, @type_5_paths = [], [], [], []
 
       json_schema_interpretation = interpret_json_schema(@schema)
@@ -160,6 +160,7 @@ module Superstudio
     def add_to_describe_arrays(human_route, parent_path, item_path, node_type, depth)
       @human_readable_tags << human_route
       @depth_tags << depth
+
       if node_type == "string"
         @quoted_tags << 1
       else
@@ -167,9 +168,18 @@ module Superstudio
       end
 
       if parent_path.present?
-        @internal_use_tags << "#{parent_path}-#{item_path}"
+        item_string = "#{parent_path}-#{item_path}"
+        @internal_use_tags << item_string
+        @real_depth_tags << item_string.count("-4")
       else
         @internal_use_tags << "#{item_path}"
+        @real_depth_tags << 0
+      end
+
+      if item_path.chr == '3'
+        @do_not_hash << 1
+      else
+        @do_not_hash << 0
       end
     end
 
@@ -271,7 +281,8 @@ module Superstudio
       broker.set_mapper(@internal_use_tags)
       broker.set_row_count(result_set.count)
       broker.set_quotes(@quoted_tags)
-      broker.set_depths(@depth_tags)
+      broker.set_depths(@depth_tags, @real_depth_tags)
+      broker.set_hashing(@do_not_hash)
       # We need to have map_row know what the current row is without passing it in
       # Use @row_being_used for that, piggyback off that for broker consuming that row
       result_set.rows.each do |row|

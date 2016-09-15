@@ -9,6 +9,7 @@ void Init_jsonbroker();
 static VALUE json_broker_allocate();
 static VALUE json_broker_set_mapper();
 static VALUE json_broker_set_quotes();
+static VALUE json_broker_set_hashing();
 static VALUE json_broker_set_depths();
 static VALUE json_broker_set_row_count();
 static VALUE json_broker_get_row_count();

@@ -9,7 +9,9 @@ void json_builder_initialize(JSONBuilder *builder)
 {
   builder->mapping_array = NULL;
   builder->quote_array = NULL;
+  builder->do_not_hash = NULL;
   builder->depth_array = NULL;
+  builder->real_depth_array = NULL;
   builder->row_being_worked_on = NULL;
   builder->resulting_json = NULL;
   builder->root = (ArrayObjectJSON*)malloc(sizeof(ArrayObjectJSON));
@@ -18,6 +20,7 @@ void json_builder_initialize(JSONBuilder *builder)
   builder->column_count = 0;
   builder->json_char_count = 2; //Starts with "{}"
   builder->max_depth = 0;
+  builder->max_real_depth = 0;
 }
 
 void set_row_count(JSONBuilder *builder, unsigned long count)
@@ -53,10 +56,18 @@ void set_quote_array(JSONBuilder *builder, unsigned long* quotes)
   // }
 }
 
-void set_depth_array(JSONBuilder *builder, unsigned long* depths, unsigned long max)
+void set_hashing_array(JSONBuilder *builder, unsigned long* do_not_hashes)
+{
+  builder->do_not_hash = do_not_hashes;
+}
+
+void set_depth_array(JSONBuilder *builder, unsigned long* depths, unsigned long max, unsigned long* real_depths, unsigned long max_real)
 {
   builder->depth_array = depths;
   builder->max_depth = max;
+  builder->real_depth_array = real_depths;
+  builder->max_real_depth = max_real;
+
   // unsigned long counter = 0;
   // while(counter < builder->column_count)
   // {
@@ -77,66 +88,70 @@ void set_mapping_array(JSONBuilder *builder, char** internal_map)
   // }
 }
 
-void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes)
+void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes, unsigned long accessing_depth, unsigned long column_count, uint64_t parent_hash)
 {
   /*
-  *   When this is 0, we're looking at the root. This would be the only depth that
+  *   When accessing_depth is 0, we're looking at the root. This would be the only depth that
   *   we should look at creating an entirely new struture - otherwise we should be
   *   able to find another structure that this row can add new data into.
   */
-  unsigned long accessing_depth = 0;
-
-  /*
-  *   Search for 1.x items at this depth any number of 2.x items followed by 1.x
-  */
-
   uint64_t hash = FNV_OFFSET;
   unsigned long counter = 0;
   unsigned long inner_counter = 0;
   HashListNode* found_node;
 
-  while(accessing_depth < builder->max_depth)
+  while(counter < column_count)
   {
-    while(counter < builder->column_count)
+    inner_counter = 0;
+    while (inner_counter < string_sizes[counter])
     {
-      // Go in by the starting piece's array before this depth, only happens on a 1 or 2
-
-        inner_counter = 0;
-        while (inner_counter < string_sizes[counter])
-        {
-          hash = fnv_hash_byte(hash, &row[counter][inner_counter]);
-          inner_counter++;
-        }
-
-      counter++;
+      // Make sure this column is the correct depth, and should be hashed
+      if (builder->real_depth_array[counter] == accessing_depth) && !(builder->do_not_hash[counter])
+      {
+        hash = fnv_hash_byte(hash, &row[counter][inner_counter]);
+      }
+      inner_counter++;
     }
+    counter++;
+  }
 
-    found_node = hl_find_node(builder->search_list, hash);
-
-    if(found_node == NULL)
+  found_node = hl_find_node(builder->search_list, hash);
+  if(found_node == NULL)
+  {
+    if(accessing_depth == 0)
     {
-      if(accessing_depth == 0)
-      {
-        create_new_root_item(builder, hash, row);
-      }
-      else
-      {
-        // Figure out what type 4 we're in, insert stuff in there
-      }
+      create_new_root_item(builder, hash, row, string_sizes, NULL);
     }
     else
     {
+      // Find your parent node
+      parent_node = hl_find_node(builder->search_list, parent_hash);
+      // Determine what kind this is
 
+      // Insert
     }
-
-
-    accessing_depth++;
   }
+  else
+  {
+    // Split out the smaller parts at the next depth, call consume_row on those with accessing_depth + 1
+    // Skip forward accessing depth -1 dashes (or none of accessing depth is 0)
+    // Skip forward 2 characters
+    // Read until the next dash - this is where this item belongs
+    // Group those values together, and call consume row with those subsets
+  }
+
 }
 
-void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row)
+void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsigned long* string_sizes)
 {
   hl_insert_or_find(builder->search_list, hash);
+
+  //Create a new JSON Object
+
+  //For each non-4 object, create and insert
+
+  //Go through each type-4 object, call adding their stuff, as deep as it goes
+
 }
 
 char* read_value(char depth_start, char is_first, char* mapped_value)
