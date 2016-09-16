@@ -11,7 +11,7 @@ module Superstudio
       def create_map_file
         file_name = name
         file_name = file_name << ".json.schema" unless name.end_with?(".json.schema")
-        class_name = file_name.chomp(".json.schema")
+        class_name = file_name.chomp(".json.schema").classify
 
         interpreted_schema = Superstudio::SqlJsonBuilder.new(nil, file_name)
 
@@ -22,15 +22,14 @@ Interpreted schema has the following data bodies. Multiple bodies indicates arra
         interpreted_hashes = []
 
         interpreted_schema.template_bodies.each do |key, template|
-          inter = JSON.parse("{" << template.gsub("%", "").slice(1..template.length).chomp("}").gsub('{', '"').gsub('}', '"') << "}")
+          inter = JSON.parse("{" << template.slice(1..template.length).chomp("}").gsub('{', '"').gsub('}', '"') << "}")
           temp_string = PP.pp(inter, '')
           interpreted_hashes << inter
           file_data << %Q(
-#{temp_string}
-            )
+Node Path: #{key.join("->")}
+#{temp_string})
         end
-        file_data << %Q(
-=end)
+        file_data << %Q(=end)
 
         file_data << %Q(
 class #{class_name}Mapper < Superstudio::SqlJsonBuilder
@@ -45,7 +44,7 @@ class #{class_name}Mapper < Superstudio::SqlJsonBuilder
         file_data << %Q(
   end
 end)
-        create_file "app/json_schemas/#{class_name}.rb", file_data
+        create_file "app/json_schemas/#{class_name.underscore}_mapper.rb", file_data
       end
     end
   end

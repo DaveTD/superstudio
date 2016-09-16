@@ -9,4 +9,5 @@ Gem::Specification.new do |s|
   s.files       = ["lib/superstudio.rb"]
   s.homepage    = ''
   s.license     = 'MIT'
+  s.extensions  = %w[ext/superstudio/extconf.rb]
 end
