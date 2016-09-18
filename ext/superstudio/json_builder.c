@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "json_builder.h"
-#include "hash_linked_list.h"
-#include "fnv_64.h"
+#include <json_builder.h>
+#include <hash_linked_list.h>
+#include <fnv_64.h>
 
 void json_builder_initialize(JSONBuilder *builder)
 {
@@ -99,6 +99,7 @@ void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes, 
   unsigned long counter = 0;
   unsigned long inner_counter = 0;
   HashListNode* found_node;
+  HashListNode* parent_node;
 
   while(counter < column_count)
   {
@@ -106,7 +107,7 @@ void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes, 
     while (inner_counter < string_sizes[counter])
     {
       // Make sure this column is the correct depth, and should be hashed
-      if (builder->real_depth_array[counter] == accessing_depth) && !(builder->do_not_hash[counter])
+      if ((builder->real_depth_array[counter] == accessing_depth) && (!builder->do_not_hash[counter]))
       {
         hash = fnv_hash_byte(hash, &row[counter][inner_counter]);
       }
@@ -120,7 +121,7 @@ void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes, 
   {
     if(accessing_depth == 0)
     {
-      create_new_root_item(builder, hash, row, string_sizes, NULL);
+      create_new_root_item(builder, hash, row, string_sizes, 0);
     }
     else
     {
@@ -142,7 +143,7 @@ void consume_row(JSONBuilder *builder, char** row, unsigned long* string_sizes, 
 
 }
 
-void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsigned long* string_sizes)
+void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsigned long* string_sizes, uint64_t parent_hash)
 {
   hl_insert_or_find(builder->search_list, hash);
 
@@ -157,7 +158,7 @@ void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsig
 char* read_value(char depth_start, char is_first, char* mapped_value)
 {
   char* return_string;
-  char starting_character = 0;
+  unsigned int starting_character = 0;
   char depth_counter = 0;
   if (depth_start > 0)
   {
@@ -188,7 +189,8 @@ char* read_value(char depth_start, char is_first, char* mapped_value)
   else
   {
     return_string = malloc(sizeof(char));
-    return_string[0] = mapped_value[++starting_character];
+    ++starting_character;
+    return_string[0] = mapped_value[starting_character];
   }
 
   return return_string;

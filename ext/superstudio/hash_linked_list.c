@@ -33,7 +33,9 @@ void print_list_details(HashList *list)
 
 void increment_length(HashList *list)
 {
-  list->length = ++(list->length);
+  int tmp_length;
+  tmp_length = list->length;
+  list->length = ++tmp_length;
   return;
 }
 
@@ -46,6 +48,7 @@ uint64_t hl_first(HashList *list)
 
 HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
 {
+  HashListNode* found_node;
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
 
   if(!list->next)
@@ -61,7 +64,7 @@ HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
     increment_length(list);
     return list->next;
   }
-  HashListNode* found_node = hl_find_node(list, passed_hash);
+  found_node = hl_find_node(list, passed_hash);
   if(found_node)
   {
     //printf("Found previously existing node, bumping %llu to front\n", passed_hash);
@@ -98,7 +101,6 @@ HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
 
 HashListNode* hl_find_node(HashList *list, uint64_t passed_hash)
 {
-  int counter = 0;
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
   HashListNode *i = list->buckets[bucket_number];
 
