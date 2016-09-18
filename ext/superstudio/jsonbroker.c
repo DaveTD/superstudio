@@ -1,19 +1,8 @@
 #include <jsonbroker.h>
 
-void Init_jsonbroker()
+static void deallocate_broker(void * broker)
 {
-  VALUE cJsonBroker = rb_define_class_under(mSuperstudio, "JsonBroker", rb_cObject);
-
-  rb_define_alloc_func(cJsonBroker, json_broker_allocate);
-  rb_define_method(cJsonBroker, "set_mapper", json_broker_set_mapper, 1);
-  rb_define_method(cJsonBroker, "set_row_count", json_broker_set_row_count, 1);
-  rb_define_method(cJsonBroker, "set_quotes", json_broker_set_quotes, 1);
-  rb_define_method(cJsonBroker, "set_hashing", json_broker_set_hashing, 1);
-  rb_define_method(cJsonBroker, "set_depths", json_broker_set_depths, 2);
-  rb_define_method(cJsonBroker, "get_row_count", json_broker_get_row_count, 0);
-  rb_define_method(cJsonBroker, "get_column_count", json_broker_get_mapper_length, 0);
-  rb_define_method(cJsonBroker, "consume_row", json_broker_consume_row, 1);
-  rb_define_method(cJsonBroker, "finalize_json", json_broker_finalize_json, 0);
+  free(broker);
 }
 
 static VALUE json_broker_allocate(VALUE klass)
@@ -25,11 +14,11 @@ static VALUE json_broker_allocate(VALUE klass)
 
 static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
 {
-  Check_Type(tags, T_ARRAY);
   JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
-
   unsigned long length = RARRAY_LENINT(tags);
+
+  Check_Type(tags, T_ARRAY);
+  Data_Get_Struct(self, JSONBuilder, builder);
   set_column_count(builder, length);
 
   struct RArray* cTags = RARRAY(tags);
@@ -54,8 +43,8 @@ static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
 
 static VALUE json_broker_set_quotes(VALUE self, VALUE quotes)
 {
-  Check_Type(quotes, T_ARRAY);
   JSONBuilder *builder;
+  Check_Type(quotes, T_ARRAY);
   Data_Get_Struct(self, JSONBuilder, builder);
 
   unsigned long length = get_column_count(builder);
@@ -75,8 +64,8 @@ static VALUE json_broker_set_quotes(VALUE self, VALUE quotes)
 
 static VALUE json_broker_set_hashing(VALUE self, VALUE do_not_hash)
 {
-  Check_Type(do_not_hash, T_ARRAY);
   JSONBuilder *builder;
+  Check_Type(do_not_hash, T_ARRAY);
   Data_Get_Struct(self, JSONBuilder, builder);
 
   unsigned long length = get_column_count(builder);
@@ -96,8 +85,8 @@ static VALUE json_broker_set_hashing(VALUE self, VALUE do_not_hash)
 
 static VALUE json_broker_set_depths(VALUE self, VALUE depths, VALUE real_depths)
 {
-  Check_Type(depths, T_ARRAY);
   JSONBuilder *builder;
+  Check_Type(depths, T_ARRAY);
   Data_Get_Struct(self, JSONBuilder, builder);
 
   unsigned long length = get_column_count(builder);
@@ -159,8 +148,8 @@ static VALUE json_broker_get_row_count(VALUE self)
 
 static VALUE json_broker_consume_row(VALUE self, VALUE row)
 {
-  Check_Type(row, T_ARRAY);
   JSONBuilder *builder;
+  Check_Type(row, T_ARRAY);
   Data_Get_Struct(self, JSONBuilder, builder);
   struct RArray* cRow = RARRAY(row);
   VALUE* row_pointer = RARRAY_PTR(cRow);
@@ -183,7 +172,7 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     string_sizes[counter] = RSTRING_LEN(in_loop_rstring);
     counter++;
   }
-  consume_row(builder, row_strings, string_sizes, 0, NULL);
+  consume_row(builder, row_strings, string_sizes, 0, length, 0);
   return Qnil;
 }
 
@@ -195,7 +184,18 @@ static VALUE json_broker_finalize_json(VALUE self)
   return rb_str_new2(final_json);
 }
 
-static void deallocate_broker(void * broker)
+void Init_jsonbroker()
 {
-  free(broker);
+  VALUE cJsonBroker = rb_define_class_under(mSuperstudio, "JsonBroker", rb_cObject);
+
+  rb_define_alloc_func(cJsonBroker, json_broker_allocate);
+  rb_define_method(cJsonBroker, "set_mapper", json_broker_set_mapper, 1);
+  rb_define_method(cJsonBroker, "set_row_count", json_broker_set_row_count, 1);
+  rb_define_method(cJsonBroker, "set_quotes", json_broker_set_quotes, 1);
+  rb_define_method(cJsonBroker, "set_hashing", json_broker_set_hashing, 1);
+  rb_define_method(cJsonBroker, "set_depths", json_broker_set_depths, 2);
+  rb_define_method(cJsonBroker, "get_row_count", json_broker_get_row_count, 0);
+  rb_define_method(cJsonBroker, "get_column_count", json_broker_get_mapper_length, 0);
+  rb_define_method(cJsonBroker, "consume_row", json_broker_consume_row, 1);
+  rb_define_method(cJsonBroker, "finalize_json", json_broker_finalize_json, 0);
 }

@@ -14,7 +14,7 @@
 
 uint64_t fnv_hash(uint64_t hash, void *data, char type)
 {
-  int i;
+  unsigned int i;
 
   union {
     short source_short;
@@ -81,7 +81,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
       while(*byte_struct.source_string != '\0')
       {
          hash = fnv_hash_byte(hash, byte_struct.source_string);
-         *byte_struct.source_string = *byte_struct.source_string++;
+         *byte_struct.source_string = *byte_struct.source_string + 1;
       }
       return hash;
     break;

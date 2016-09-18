@@ -62,7 +62,7 @@ void set_depth_array(JSONBuilder *builder, unsigned long* depths, unsigned long 
 void set_mapping_array(JSONBuilder *builder, char** internal_map);
 
 void consume_row(JSONBuilder *builder, char** row, unsigned long* sizes, unsigned long accessing_depth, unsigned long column_count, uint64_t parent_hash);
-void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsigned long* string_sizes);
+void create_new_root_item(JSONBuilder* builder, uint64_t hash, char** row, unsigned long* string_sizes, uint64_t parent_hash);
 char* read_value(char depth_start, char is_first, char* mapped_value);
 char* append(const char *input, const char c);
 
