@@ -1,4 +1,5 @@
-require 'superstudio.bundle'
+#require 'superstudio.bundle'
+require 'superstudio/superstudio'
 
 module Superstudio
   class SqlJsonBuilder
