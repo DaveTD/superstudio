@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <json_builder.h>
-#include <hash_linked_list.h>
-#include <fnv_64.h>
+#include "json_builder.h"
+#include "hash_linked_list.h"
+#include "fnv_64.h"
 
 void json_builder_initialize(JSONBuilder *builder)
 {

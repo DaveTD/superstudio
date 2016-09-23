@@ -8,4 +8,3 @@ void Init_superstudio()
 
   Init_jsonbroker();
 }
-
