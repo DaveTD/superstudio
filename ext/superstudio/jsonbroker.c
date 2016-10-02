@@ -172,7 +172,7 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     string_sizes[counter] = RSTRING_LEN(in_loop_rstring);
     counter++;
   }
-  consume_row(builder, row_strings, string_sizes, 0, length, 0);
+  consume_row(builder, row_strings, string_sizes, 0, length, 0, builder->depth_array);
   return Qnil;
 }
 

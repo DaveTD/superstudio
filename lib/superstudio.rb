@@ -280,6 +280,7 @@ module Superstudio
 
       broker = Superstudio::JsonBroker.new()
       broker.set_mapper(@internal_use_tags)
+      byebug
       broker.set_row_count(result_set.count)
       broker.set_quotes(@quoted_tags)
       broker.set_depths(@depth_tags, @real_depth_tags)
