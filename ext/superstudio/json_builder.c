@@ -96,7 +96,7 @@ void set_mapping_array(JSONBuilder *builder, char** internal_map)
   // Get a list of the type 4s
   while (counter < builder->column_count)
   {
-    printf("here\n");
+    printf("%c\n", internal_map[counter][0]);
     if (internal_map[counter][0] == '4')
     {
       column_mapping = internal_map[counter];
