@@ -55,13 +55,13 @@ unsigned long get_column_count(JSONBuilder *builder)
 void set_quote_array(JSONBuilder *builder, unsigned long* quotes)
 {
   builder->quote_array = (unsigned long*)malloc(sizeof(unsigned long) * builder->column_count);
-  memcpy(builder->quote_array, quotes, sizeof(unsigned long) * (builder->column_count + 1));
+  memcpy(builder->quote_array, quotes, sizeof(unsigned long) * (builder->column_count));
 }
 
 void set_hashing_array(JSONBuilder *builder, unsigned long* do_not_hashes)
 {
   builder->do_not_hash = (unsigned long*)malloc(sizeof(unsigned long) * builder->column_count);
-  memcpy(builder->do_not_hash, do_not_hashes, sizeof(unsigned long) * (builder->column_count + 1));
+  memcpy(builder->do_not_hash, do_not_hashes, sizeof(unsigned long) * (builder->column_count));
 }
 
 void set_depth_array(
@@ -73,12 +73,12 @@ void set_depth_array(
   )
 {
   builder->depth_array = (unsigned long*)malloc(sizeof(unsigned long) * builder->column_count);
-  memcpy(builder->depth_array, depths, sizeof(unsigned long) * (builder->column_count + 1));
+  memcpy(builder->depth_array, depths, sizeof(unsigned long) * (builder->column_count));
 
   builder->max_depth = max;
   
   builder->real_depth_array = (unsigned long*)malloc(sizeof(unsigned long) * builder->column_count);
-  memcpy(builder->real_depth_array, real_depths, sizeof(unsigned long) * (builder->column_count + 1));
+  memcpy(builder->real_depth_array, real_depths, sizeof(unsigned long) * (builder->column_count));
   
   builder->max_real_depth = max_real;
 }
@@ -88,14 +88,14 @@ void set_column_names_sizes(JSONBuilder *builder, char** column_names, unsigned 
   builder->column_name_lengths = (unsigned long*)malloc(sizeof(unsigned long) * builder->column_count);
   builder->column_names = (char**)malloc(sizeof(char*) * builder->column_count);
 
-  memcpy(builder->column_name_lengths, column_string_sizes, sizeof(unsigned long*) * (builder->column_count + 1));
-  memcpy(builder->column_names, column_names, sizeof(char*) * (builder->column_count + 1));
+  memcpy(builder->column_name_lengths, column_string_sizes, sizeof(unsigned long*) * (builder->column_count));
+  memcpy(builder->column_names, column_names, sizeof(char*) * (builder->column_count));
 }
 
 void set_mapping_array(JSONBuilder *builder, char** internal_map)
 {
   builder->mapping_array = (char**)malloc(sizeof(char*) * builder->column_count);
-  memcpy(builder->mapping_array, internal_map, sizeof(char*) * (builder->column_count + 1));
+  memcpy(builder->mapping_array, internal_map, sizeof(char*) * (builder->column_count));
 
   unsigned int counter = 0;
   char* column_mapping;
