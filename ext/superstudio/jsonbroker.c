@@ -5,11 +5,16 @@ static void deallocate_broker(void * broker)
   free(broker);
 }
 
+void json_broker_mark(JSONBuilder *builder)
+{
+
+}
+
 static VALUE json_broker_allocate(VALUE klass)
 {
   JSONBuilder *builder = malloc(sizeof(JSONBuilder));
   json_builder_initialize(builder);
-  return Data_Wrap_Struct(klass, NULL, deallocate_broker, builder);
+  return Data_Wrap_Struct(klass, json_broker_mark, deallocate_broker, builder);
 }
 
 static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
@@ -41,6 +46,39 @@ static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
   return Qnil;
 }
 
+static VALUE json_broker_set_column_names(VALUE self, VALUE names)
+{
+  JSONBuilder *builder;
+  unsigned long length = RARRAY_LENINT(names);
+
+  Check_Type(names, T_ARRAY);
+  Data_Get_Struct(self, JSONBuilder, builder);
+  
+  struct RArray* cNames = RARRAY(names);
+  VALUE* name_pointer = RARRAY_PTR(cNames);
+
+  struct RString* in_loop_rstring;
+  char* in_loop_string;
+  unsigned long in_loop_string_size;
+  char* names_array[length];
+  unsigned long* names_sizes[length];
+  unsigned long counter = 0;
+
+  while(counter < length)
+  {
+    Check_Type(name_pointer[counter], T_STRING);
+    in_loop_rstring = RSTRING(name_pointer[counter]);
+    in_loop_string = RSTRING_PTR(in_loop_rstring);
+    in_loop_string_size = RSTRING_LEN(in_loop_rstring);
+    names_array[counter] = in_loop_string;
+    names_sizes[counter] = in_loop_string_size;
+    //printf("%s\n", in_loop_string);
+    counter++;
+  }
+  set_column_names_sizes(builder, names_array, names_sizes);
+  return Qnil;
+}
+
 static VALUE json_broker_set_quotes(VALUE self, VALUE quotes)
 {
   JSONBuilder *builder;
@@ -67,8 +105,8 @@ static VALUE json_broker_set_hashing(VALUE self, VALUE do_not_hash)
   JSONBuilder *builder;
   Check_Type(do_not_hash, T_ARRAY);
   Data_Get_Struct(self, JSONBuilder, builder);
-
   unsigned long length = get_column_count(builder);
+
   struct RArray* cDoNotHash = RARRAY(do_not_hash);
   VALUE* hashing_pointer = RARRAY_PTR(cDoNotHash);
   unsigned long hashing_array[length];
@@ -172,7 +210,15 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     string_sizes[counter] = RSTRING_LEN(in_loop_rstring);
     counter++;
   }
-  consume_row(builder, row_strings, string_sizes, 0, length, 0);
+
+  counter = 0;
+  while(counter < length)
+  {
+    //printf("Hashing array value in consume: %lu\n", builder->do_not_hash[counter]);
+    counter++;
+  }
+
+  consume_row(builder, row_strings, string_sizes, 0, length, 0, builder->depth_array);
   return Qnil;
 }
 
@@ -190,6 +236,7 @@ void Init_jsonbroker()
 
   rb_define_alloc_func(cJsonBroker, json_broker_allocate);
   rb_define_method(cJsonBroker, "set_mapper", json_broker_set_mapper, 1);
+  rb_define_method(cJsonBroker, "set_column_names", json_broker_set_column_names, 1);
   rb_define_method(cJsonBroker, "set_row_count", json_broker_set_row_count, 1);
   rb_define_method(cJsonBroker, "set_quotes", json_broker_set_quotes, 1);
   rb_define_method(cJsonBroker, "set_hashing", json_broker_set_hashing, 1);

@@ -26,7 +26,7 @@ void print_list_details(HashList *list)
   i = list->next;
   while(i)
   {
-    printf("Hash: %llu\n", i->hash);
+    printf("Hash: %lu\n", i->hash);
     i = i->next;
   }
 }

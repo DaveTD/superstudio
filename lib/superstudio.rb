@@ -5,11 +5,11 @@ require 'superstudio/schema_internal_definer'
 
 module Superstudio
   class SqlJsonBuilder
-    include SchemaReader
-    include SchemaInterpreter
-    include SchemaInternalDefiner
+    include Superstudio::SchemaReader
+    include Superstudio::SchemaInterpreter
+    include Superstudio::SchemaInternalDefiner
 
-    attr_accessor :sql_columns, :json_result, :schema, :template_bodies, :template_types, :array_paths, :json_nodes, :required_columns, :human_to_internal
+    attr_accessor :sql_columns, :json_result, :schema, :template_types, :array_paths, :json_nodes, :required_columns, :human_to_internal, :template_bodies
 
     def initialize(query, file_name = nil)
       file_class_name = self.class.name
@@ -29,7 +29,7 @@ module Superstudio
 
       if query.present?
         result_set = get_sql_results(query)
-        create_template(json_schema_interpretation)
+        # create_template(json_schema_interpretation)
         set_human_to_internal_mappings(json_schema_interpretation)
         assemble_json(result_set)
       else
@@ -59,7 +59,7 @@ module Superstudio
       working_row = []
 
       @human_readable_tags.each_with_index do |value, index|
-        working_row << (@json_nodes[value.to_sym].to_s << '\0')
+        working_row << (@json_nodes[value.to_sym].to_s)
       end
 
       return working_row
@@ -69,11 +69,13 @@ module Superstudio
       @sql_columns = result_set.columns
 
       broker = Superstudio::JsonBroker.new()
-      broker.set_mapper(@internal_use_tags)
       broker.set_row_count(result_set.count)
+      broker.set_mapper(@internal_use_tags)
       broker.set_quotes(@quoted_tags)
       broker.set_depths(@depth_tags, @real_depth_tags)
       broker.set_hashing(@do_not_hash)
+      broker.set_column_names(@sql_columns)
+      
       # We need to have map_row know what the current row is without passing it in
       # Use @row_being_used for that, piggyback off that for broker consuming that row
       result_set.rows.each do |row|
