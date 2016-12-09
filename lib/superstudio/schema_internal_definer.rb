@@ -10,7 +10,7 @@ module Superstudio
         objects_at_depth = expected_mappings.select { |j| j[:depth] == depth_counter }
         forks_at_depth = internal_fork_numbers.select { |k,v| v[:depth] == depth_counter }
         type_5_already_found, type_3_already_found = [], []
-        type_1_count = 0
+        type_1_count, type_3_count, type_5_count = 0, 0, 0
 
         objects_at_depth.each do |candidate|
           # ex. {depth: 1, path: ["root"], name: "id", node_type: "integer"}
@@ -18,9 +18,11 @@ module Superstudio
             if candidate[:path] == p[0]
               # Add the internal path to the internal mapping
               if @type_5_paths.include?(p[0])
-                handle_array_stop_path(type_5_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}")
+                type_5_count += 1
+                handle_array_stop_path(type_5_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], p[1][:internal_path], "5.#{type_5_count}", candidate[:depth])
               elsif @type_3_paths.include?(p[0])
-                handle_array_stop_path(type_3_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}")
+                type_3_count += 1
+                handle_array_stop_path(type_3_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], p[1][:internal_path], "3.#{type_3_count}", candidate[:depth])
               else
                 type_1_count += 1
                 add_to_describe_arrays("#{candidate[:path].join("_B_")}_P_#{candidate[:name]}", p[1][:internal_path], "1.#{type_1_count}", candidate[:node_type], candidate[:depth])
@@ -31,9 +33,11 @@ module Superstudio
           if !forks_at_depth.present?
             # Check the type, increment, send
             if @type_5_paths.include?(p[0])
-              handle_array_stop_path(type_5_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}")
+
+              handle_array_stop_path(type_5_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], "", "5.#{type_5_count}", candidate[:depth])
             elsif @type_3_paths.include?(p[0])
-              handle_array_stop_path(type_3_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}")
+
+              handle_array_stop_path(type_3_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], "", "3.#{type_3_count}", candidate[:depth])
             else
               type_1_count += 1
               add_to_describe_arrays("#{candidate[:path].join("_B_")}_P_#{candidate[:name]}", "", "1.#{type_1_count}", candidate[:node_type], candidate[:depth])
@@ -44,7 +48,7 @@ module Superstudio
       end
     end
 
-    def handle_array_stop_path(type_already_found, path, internal_use_tag, human_readable_tag)
+    def handle_array_stop_path(type_already_found, path, internal_use_tag, human_readable_tag, node_type, parent_path, item_path, depth)
       if type_already_found.include?(path)
         # Do nothing.
       else
@@ -52,9 +56,34 @@ module Superstudio
         @internal_use_tags << internal_use_tag
         @human_readable_tags << human_readable_tag
       end
+      
+      if @unique_threes_paths.include?(path)
+        @unique_threes_tags << 0
+      else
+        @unique_threes_tags << 1
+      end
+      
+      if node_type == "string"
+        @quoted_tags << 1
+      else
+        @quoted_tags << 0
+      end
+
+      @do_not_hash << 1
+
+      if parent_path.present?
+        item_string = "#{parent_path}-#{item_path}"
+        # Count all of the 4s in the internal string, but remove those that are a count of a type
+        @real_depth_tags << (item_string.scan(/4/).count - item_string.scan(/\.4/).count)
+      else
+        @real_depth_tags << 0
+      end
+
+      @depth_tags << depth  # going to have to fix - appears too deep for type 3s
     end
 
     def add_to_describe_arrays(human_route, parent_path, item_path, node_type, depth)
+      @unique_threes_tags << 1  # This isn't a type 3
       @human_readable_tags << human_route
       @depth_tags << depth
       item_string = item_path

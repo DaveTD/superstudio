@@ -22,8 +22,9 @@ module Superstudio
       @json_result = ""
       @json_nodes, @required_columns = {}, {}
 
-      @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags = [], [], [], [], [], []
+      @unique_threes_tags, @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags = [], [], [], [], [], [], []
       @type_2_paths, @type_3_paths, @type_4_paths, @type_5_paths = [], [], [], []
+      @unique_threes_paths = []
 
       json_schema_interpretation = interpret_json_schema(@schema)
 
@@ -75,6 +76,7 @@ module Superstudio
       broker.set_depths(@depth_tags, @real_depth_tags)
       broker.set_hashing(@do_not_hash)
       broker.set_column_names(@sql_columns)
+      broker.set_repeating_arrays(@unique_threes_tags)
       
       # We need to have map_row know what the current row is without passing it in
       # Use @row_being_used for that, piggyback off that for broker consuming that row

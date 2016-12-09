@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+#include "json_builder.h"
 #include "hash_linked_list.h"
 
 void hl_initialize(HashList *list, unsigned long query_rows)
@@ -46,7 +47,7 @@ uint64_t hl_first(HashList *list)
   return first_node.hash;
 }
 
-HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
+HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash, JSONObject* related_object)
 {
   HashListNode* found_node;
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
@@ -59,6 +60,7 @@ HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
     new_node->next = NULL;
     new_node->bucket_next = NULL;
     new_node->bucket_previous = NULL;
+    new_node->related_JSON_object = related_object;
     list->last = list->next = list->buckets[bucket_number] = new_node;
 
     increment_length(list);
@@ -83,6 +85,7 @@ HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash)
     new_node->next = NULL;
     new_node->bucket_next = NULL;
     new_node->bucket_previous = NULL;
+    new_node->related_JSON_object = related_object;
     if(list->buckets[bucket_number] != NULL)
     {
       list->buckets[bucket_number]->bucket_previous = new_node;
@@ -118,6 +121,11 @@ HashListNode* hl_find_node(HashList *list, uint64_t passed_hash)
     i = i->bucket_next;
   }
   return NULL;
+}
+
+void hl_set_json_object(HashListNode* node, JSONObject* related_object)
+{
+  node->related_JSON_object = related_object;
 }
 
 int find_target_bucket(uint64_t passed_hash, unsigned long interval)

@@ -53,7 +53,6 @@ module Superstudio
 
           #@template_bodies[object[:path]] = {} if @template_bodies[object[:path]].nil?
           @template_bodies[object[:path]] = object_string
-          #byebug
         end
 
         max_depth = max_depth - 1
@@ -85,6 +84,16 @@ module Superstudio
 
         if key == "patternProperties"
           # this will let this library output uniquely keyed properties - which will be especially useful if we want to create ID keyed hashes
+        end
+
+        if key == "uniqueItems"
+          # if this is set to true, record the path so that we can match the type 3s against it to know where to check for uniqueness
+          # default is false
+          if json_hash[key].to_s == "true"
+            new_path_array  = path_array.dup
+            new_path_array << node_name
+            @unique_threes_paths << new_path_array
+          end
         end
 
         if json_hash[key].is_a?(Hash)

@@ -27,8 +27,9 @@ void print_list_details(HashList *list);
 void increment_length(HashList *list);
 uint64_t hl_first(HashList *list);
 int find_target_bucket(uint64_t passed_hash, unsigned long interval);
+void hl_set_json_object(HashListNode* node, JSONObject* related_object);
 
-HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash);
+HashListNode* hl_insert_or_find(HashList *list, uint64_t passed_hash, JSONObject* related_object);
 HashListNode* hl_find_node(HashList *list, uint64_t passed_hash);
 
 #endif // HASH_LIST_

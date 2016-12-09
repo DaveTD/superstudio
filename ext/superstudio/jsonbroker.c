@@ -175,6 +175,28 @@ static VALUE json_broker_set_row_count(VALUE self, VALUE row_count)
   return Qnil;
 }
 
+static VALUE json_broker_set_repeating_array_columns(VALUE self, VALUE repeating)
+{
+  JSONBuilder *builder;
+  Data_Get_Struct(self, JSONBuilder, builder);
+  
+  unsigned long length = get_column_count(builder);
+  struct RArray* cRepeats = RARRAY(repeating);
+  VALUE* repeating_pointer = RARRAY_PTR(cRepeats);
+
+  unsigned long repeats_array[length];
+  unsigned long counter = 0;
+
+  while (counter < length)
+  {
+    repeats_array[counter] = FIX2LONG(repeating_pointer[counter]);
+    counter++;
+  }
+
+  set_repeating_array_columns(builder, repeats_array);
+  return Qnil;
+}
+
 static VALUE json_broker_get_row_count(VALUE self)
 {
   JSONBuilder *builder;
@@ -241,6 +263,7 @@ void Init_jsonbroker()
   rb_define_method(cJsonBroker, "set_quotes", json_broker_set_quotes, 1);
   rb_define_method(cJsonBroker, "set_hashing", json_broker_set_hashing, 1);
   rb_define_method(cJsonBroker, "set_depths", json_broker_set_depths, 2);
+  rb_define_method(cJsonBroker, "set_repeating_arrays", json_broker_set_repeating_array_columns, 1);
   rb_define_method(cJsonBroker, "get_row_count", json_broker_get_row_count, 0);
   rb_define_method(cJsonBroker, "get_column_count", json_broker_get_mapper_length, 0);
   rb_define_method(cJsonBroker, "consume_row", json_broker_consume_row, 1);
