@@ -9,6 +9,9 @@ typedef struct JSONObject
 
   struct SingleValueJSON* last_single_value;
   struct SingleObjectJSON* last_single_object;
+
+  unsigned int value_array_count;
+
 } JSONObject;
 
 typedef struct SingleValueJSON
@@ -33,6 +36,7 @@ typedef struct ArrayValueJSON
   char* name;
   unsigned long name_characters;
   unsigned char quoted;
+  unsigned char set_flag;
   struct ArrayValueListItem* value_list;
   struct ArrayValueListItem* last_list_value;
 
@@ -61,6 +65,7 @@ typedef struct ArrayValueListItem
 {
   char* array_value;
   unsigned long value_characters;
+  unsigned char set_flag;
   struct ArrayValueListItem* next_value;
   struct ArrayValueListItem* last_value;
 } ArrayValueListItem;

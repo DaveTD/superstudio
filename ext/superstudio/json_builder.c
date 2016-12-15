@@ -293,7 +293,6 @@ void add_to_array(
   HashListNode* found_node;
   JSONObject* parent_object;
   ArrayValueJSON* array_search;
-  ArrayValueJSON* previous_array;
   ArrayValueListItem* array_values_search;
   unsigned char item_added = 0;
   int repeat_found = 0;
@@ -301,37 +300,27 @@ void add_to_array(
   found_node = hl_find_node(builder->search_list, hash);
   parent_object = found_node->related_JSON_object;
   array_search = parent_object->array_values;
-  
+
   while (array_search && !item_added)
   {
-    if (!array_search->name)
-    { 
-      // If there's no name found, this is an unused array, we haven't matched yet, open it up
+    // Check if this value array has been fully set
+    if (!array_search->set_flag)
+    {
       array_search->name = (char*)malloc(column_name_length);
       memcpy(array_search->name, column_name, column_name_length);
       array_search->name_characters = column_name_length;
+
       array_search->quoted = quoted;
 
       array_search->value_list = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
-      array_search->value_list->array_value = (char*)malloc(string_size);
-      memcpy(array_search->value_list->array_value, string_value, string_size);
-      array_search->value_list->value_characters = string_size;
-
       array_search->last_list_value = array_search->value_list;
-      array_search->last_list_value->next_value = NULL;
+      array_search->next_value = (ArrayValueJSON*)calloc(1, sizeof(ArrayValueJSON));;
 
-      builder->json_char_count += string_size;
-      if (quoted)
-      {
-        builder->json_char_count += 2; // Add space for the quotes on the value, if needed
-      }
+      array_search->set_flag = 1;
+      parent_object->value_array_count += 1;
 
-      // array_search->next_value = NULL;
-      item_added = 1;
-
-      // Add space for this new array
-      builder->json_char_count += 5; // Add bracket space, no comma since this is the first array this object appears to have, plus quotes and a colon for the key
       builder->json_char_count += column_name_length;
+      builder->json_char_count += 6; // Two quotes, a colon, starting and ending brackets, a comma (might want to add the comma space somewhere else)
     }
 
     // Loop through, check length and memcmp names if it matches
@@ -343,10 +332,10 @@ void add_to_array(
       if (repeatable)
       {
         array_search->last_list_value->next_value = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
-        array_search->last_list_value->next_value->value_characters = string_size;
-        array_search->last_list_value->next_value->array_value = (char*)malloc(string_size);
-        memcpy(array_search->last_list_value->next_value->array_value, string_value, string_size);
-        array_search->last_list_value->next_value->next_value = NULL;
+        array_search->last_list_value->value_characters = string_size;
+        array_search->last_list_value->array_value = (char*)malloc(string_size);
+        memcpy(array_search->last_list_value->array_value, string_value, string_size);
+        array_search->last_list_value->set_flag = 1;
         array_search->last_list_value = array_search->last_list_value->next_value;
 
         builder->json_char_count += string_size;
@@ -373,10 +362,10 @@ void add_to_array(
         if (!repeat_found)
         {
           array_search->last_list_value->next_value = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
-          array_search->last_list_value->next_value->value_characters = string_size;
-          array_search->last_list_value->next_value->array_value = (char*)malloc(string_size);
-          memcpy(array_search->last_list_value->next_value->array_value, string_value, string_size);
-          array_search->last_list_value->next_value->next_value = NULL;
+          array_search->last_list_value->value_characters = string_size;
+          array_search->last_list_value->array_value = (char*)malloc(string_size);
+          memcpy(array_search->last_list_value->array_value, string_value, string_size);
+          array_search->last_list_value->set_flag = 1;
           array_search->last_list_value = array_search->last_list_value->next_value;
 
           builder->json_char_count += string_size;
@@ -389,41 +378,9 @@ void add_to_array(
         }
       }
     }
-    previous_array = array_search;
+
     array_search = array_search->next_value;
   }
-  // No matches were found but at least one array was present - this must be a new array, add it in
-  if (!array_search && !item_added)
-  {
-    previous_array->next_value = (ArrayValueJSON*)calloc(1, sizeof(ArrayValueJSON));
-    array_search = previous_array->next_value;
-    array_search->name = (char*)malloc(column_name_length);
-    memcpy(array_search->name, column_name, column_name_length);
-    array_search->name_characters = column_name_length;
-    array_search->quoted = quoted;
-
-    array_search->value_list = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
-    array_search->value_list->array_value = (char*)malloc(string_size);
-    memcpy(array_search->value_list->array_value, string_value, string_size);
-    array_search->value_list->value_characters = string_size;
-
-    array_search->last_list_value = array_search->value_list;
-    array_search->last_list_value->next_value = NULL;
-
-    builder->json_char_count += string_size;
-    if (quoted)
-    {
-      builder->json_char_count += 2; // Add space for the quotes on the value, if needed
-    }
-
-    // array_search->next_value = NULL;
-    item_added = 1;
-
-    // Add space for this new array
-    builder->json_char_count += 6; // Add bracket space, and a comma since this isn't the first array this object appears to have, plus quotes and a colon for the key
-    builder->json_char_count += column_name_length;
-  }
-
 }
 
 void sub_build(
@@ -492,63 +449,64 @@ void create_new_root_item(
     
     if (builder->mapping_array[counter][0] == '1')
     {
-        builder->json_char_count += 2; // Add space for quotes for the key
-        builder->json_char_count += builder->column_name_lengths[counter]; // Add space for the key
+      builder->json_char_count += 2; // Add space for quotes for the key
+      builder->json_char_count += builder->column_name_lengths[counter]; // Add space for the key
 
-        builder->json_char_count += 1; // Add space for the colon 
+      builder->json_char_count += 1; // Add space for the colon 
 
+      
+      if (builder->quote_array[counter])
+      {
+        builder->json_char_count += 2; // Add space for the quotes on the value, if needed
+      }
+      //printf("String found with length: %lu\n", string_sizes[counter]);
+      builder->json_char_count += string_sizes[counter]; // Add space for the value
+      
+      //use the malloc'd target array object
+      if (builder->root->last_list_object->array_object->single_values) 
+      {
+        //target_array_object->last_single_value->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
+        builder->root->last_list_object->array_object->last_single_value->next_value->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
+
+        builder->root->last_list_object->array_object->last_single_value->next_value->name = (char*)malloc(builder->column_name_lengths[counter] + 1);
+        memcpy(builder->root->last_list_object->array_object->last_single_value->next_value->name, builder->column_names[counter], (builder->column_name_lengths[counter]) + 1);
+
+        builder->root->last_list_object->array_object->last_single_value->next_value->value = (char*)malloc(string_sizes[counter] + 1);
+        memcpy(builder->root->last_list_object->array_object->last_single_value->next_value->value, row[counter], (string_sizes[counter]) + 1);
+
+        builder->root->last_list_object->array_object->last_single_value->next_value->value_characters = string_sizes[counter];
+        builder->root->last_list_object->array_object->last_single_value->next_value->name_characters = builder->column_name_lengths[counter];
+        builder->root->last_list_object->array_object->last_single_value->next_value->quoted = builder->quote_array[counter];
+
+        builder->root->last_list_object->array_object->last_single_value = builder->root->last_list_object->array_object->last_single_value->next_value;
+      }
+      else
+      {
+        // if there's nothing there, this is the first and last
+        builder->root->last_list_object->array_object->single_values = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
+        builder->root->last_list_object->array_object->single_values->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
         
-        if (builder->quote_array[counter])
-        {
-          builder->json_char_count += 2; // Add space for the quotes on the value, if needed
-        }
-        //printf("String found with length: %lu\n", string_sizes[counter]);
-        builder->json_char_count += string_sizes[counter]; // Add space for the value
-        
-        //use the malloc'd target array object
-        if (builder->root->last_list_object->array_object->single_values) 
-        {
-          //target_array_object->last_single_value->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
-          builder->root->last_list_object->array_object->last_single_value->next_value->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
+        builder->root->last_list_object->array_object->single_values->name = (char*)malloc(builder->column_name_lengths[counter] + 1);
+        memcpy(builder->root->last_list_object->array_object->single_values->name, builder->column_names[counter], (builder->column_name_lengths[counter]) + 1);
 
-          builder->root->last_list_object->array_object->last_single_value->next_value->name = (char*)malloc(builder->column_name_lengths[counter] + 1);
-          memcpy(builder->root->last_list_object->array_object->last_single_value->next_value->name, builder->column_names[counter], (builder->column_name_lengths[counter]) + 1);
+        builder->root->last_list_object->array_object->single_values->value = (char*)malloc(string_sizes[counter] + 1);
+        memcpy(builder->root->last_list_object->array_object->single_values->value, row[counter], (string_sizes[counter]) + 1);
 
-          builder->root->last_list_object->array_object->last_single_value->next_value->value = (char*)malloc(string_sizes[counter] + 1);
-          memcpy(builder->root->last_list_object->array_object->last_single_value->next_value->value, row[counter], (string_sizes[counter]) + 1);
+        builder->root->last_list_object->array_object->single_values->value_characters = string_sizes[counter];
+        builder->root->last_list_object->array_object->single_values->name_characters = builder->column_name_lengths[counter];
+        builder->root->last_list_object->array_object->single_values->quoted = builder->quote_array[counter];
 
-          builder->root->last_list_object->array_object->last_single_value->next_value->value_characters = string_sizes[counter];
-          builder->root->last_list_object->array_object->last_single_value->next_value->name_characters = builder->column_name_lengths[counter];
-          builder->root->last_list_object->array_object->last_single_value->next_value->quoted = builder->quote_array[counter];
-
-
-          builder->root->last_list_object->array_object->last_single_value = builder->root->last_list_object->array_object->last_single_value->next_value;
-        }
-        else
-        {
-          // if there's nothing there, this is the first and last
-          builder->root->last_list_object->array_object->single_values = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
-          builder->root->last_list_object->array_object->single_values->next_value = (SingleValueJSON*)malloc(sizeof(SingleValueJSON));
-          
-          builder->root->last_list_object->array_object->single_values->name = (char*)malloc(builder->column_name_lengths[counter] + 1);
-          memcpy(builder->root->last_list_object->array_object->single_values->name, builder->column_names[counter], (builder->column_name_lengths[counter]) + 1);
-
-          builder->root->last_list_object->array_object->single_values->value = (char*)malloc(string_sizes[counter] + 1);
-          memcpy(builder->root->last_list_object->array_object->single_values->value, row[counter], (string_sizes[counter]) + 1);
-
-          builder->root->last_list_object->array_object->single_values->value_characters = string_sizes[counter];
-          builder->root->last_list_object->array_object->single_values->name_characters = builder->column_name_lengths[counter];
-          builder->root->last_list_object->array_object->single_values->quoted = builder->quote_array[counter];
-
-          builder->root->last_list_object->array_object->last_single_value = builder->root->last_list_object->array_object->single_values;
-        }
+        builder->root->last_list_object->array_object->last_single_value = builder->root->last_list_object->array_object->single_values;
+      }
     }
 
-
+    /* THIS IS PROBABLY CAUSING EXTRA MEMORY ALLOCATION COME BACK TO IT AFTER */
     if (builder->column_count != (counter + 1) )
     {
       builder->json_char_count += 1; // Add a space for the comma, as long as this not the last item in the object
     }
+    /* THIS IS PROBABLY CAUSING EXTRA MEMORY ALLOCATION COME BACK TO IT AFTER */
+
     counter++;
   }
 
@@ -612,7 +570,7 @@ char* append(const char *input, const char c)
 }
 
 char* finalize_json(JSONBuilder *builder)
-{  
+{
   builder->resulting_json = (char*)malloc(builder->json_char_count - 1); // Remove extra character from last comma
   builder->resulting_json[0] = '[';
   builder->resulting_json[1] = '\0';
@@ -670,7 +628,7 @@ char* finalize_json(JSONBuilder *builder)
         counter += j->value_characters;
       }
 
-      if ((j->next_value != i->array_object->last_single_value->next_value) || i->array_object->array_values)
+      if ((j->next_value != i->array_object->last_single_value->next_value) || i->array_object->array_values->set_flag)
       {
         memcpy(builder->resulting_json + counter, cm, 1);
         counter++;
@@ -696,9 +654,10 @@ char* finalize_json(JSONBuilder *builder)
     /*
       THIS SECTION ADDS TYPE 3S
     */
+
     value_arrays = i->array_object->array_values;
 
-    while(value_arrays)
+    while(value_arrays->set_flag)
     {
       value_array_values = value_arrays->value_list;
 
@@ -714,7 +673,7 @@ char* finalize_json(JSONBuilder *builder)
       memcpy(builder->resulting_json + counter, ob, 1);
       counter++;
 
-      while(value_array_values)
+      while(value_array_values->set_flag)
       {
         if (value_arrays->quoted)
         {
@@ -731,7 +690,7 @@ char* finalize_json(JSONBuilder *builder)
           counter++;
         }
 
-        if (value_array_values->next_value)
+        if (value_array_values->next_value->set_flag)
         {
           memcpy(builder->resulting_json + counter, cm, 1);
           counter++;
@@ -743,10 +702,13 @@ char* finalize_json(JSONBuilder *builder)
       memcpy(builder->resulting_json + counter, cb, 1);
       counter++;
 
-      if (value_arrays->next_value)
+      if (value_arrays->next_value->set_flag)
       {
-        memcpy(builder->resulting_json + counter, cm, 1);
-        counter++;
+        //if (value_arrays->next_value->set_flag)
+        //{
+          memcpy(builder->resulting_json + counter, cm, 1);
+          counter++;
+        //}
       }
 
       value_arrays = value_arrays->next_value;
