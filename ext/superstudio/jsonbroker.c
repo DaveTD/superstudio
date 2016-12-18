@@ -5,25 +5,25 @@ static void deallocate_broker(void * broker)
   free(broker);
 }
 
-void json_broker_mark(JSONBuilder *builder)
+void json_broker_mark(JSONDocumentBuilder *builder)
 {
 
 }
 
 static VALUE json_broker_allocate(VALUE klass)
 {
-  JSONBuilder *builder = malloc(sizeof(JSONBuilder));
+  JSONDocumentBuilder *builder = (JSONDocumentBuilder*)malloc(sizeof(JSONDocumentBuilder));
   json_builder_initialize(builder);
   return Data_Wrap_Struct(klass, json_broker_mark, deallocate_broker, builder);
 }
 
 static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   unsigned long length = RARRAY_LENINT(tags);
 
   Check_Type(tags, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   set_column_count(builder, length);
 
   struct RArray* cTags = RARRAY(tags);
@@ -48,11 +48,11 @@ static VALUE json_broker_set_mapper(VALUE self, VALUE tags)
 
 static VALUE json_broker_set_column_names(VALUE self, VALUE names)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   unsigned long length = RARRAY_LENINT(names);
 
   Check_Type(names, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   
   struct RArray* cNames = RARRAY(names);
   VALUE* name_pointer = RARRAY_PTR(cNames);
@@ -81,9 +81,9 @@ static VALUE json_broker_set_column_names(VALUE self, VALUE names)
 
 static VALUE json_broker_set_quotes(VALUE self, VALUE quotes)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   Check_Type(quotes, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
 
   unsigned long length = get_column_count(builder);
   struct RArray* cQuotes = RARRAY(quotes);
@@ -102,9 +102,9 @@ static VALUE json_broker_set_quotes(VALUE self, VALUE quotes)
 
 static VALUE json_broker_set_hashing(VALUE self, VALUE do_not_hash)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   Check_Type(do_not_hash, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   unsigned long length = get_column_count(builder);
 
   struct RArray* cDoNotHash = RARRAY(do_not_hash);
@@ -123,9 +123,9 @@ static VALUE json_broker_set_hashing(VALUE self, VALUE do_not_hash)
 
 static VALUE json_broker_set_depths(VALUE self, VALUE depths, VALUE real_depths)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   Check_Type(depths, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
 
   unsigned long length = get_column_count(builder);
   struct RArray* cDepths = RARRAY(depths);
@@ -159,8 +159,8 @@ static VALUE json_broker_set_depths(VALUE self, VALUE depths, VALUE real_depths)
 
 static VALUE json_broker_get_mapper_length(VALUE self)
 {
-  JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
+  JSONDocumentBuilder *builder;
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   unsigned long get_count = get_column_count(builder);
   VALUE count = LONG2FIX(get_count);
   return count;
@@ -168,8 +168,8 @@ static VALUE json_broker_get_mapper_length(VALUE self)
 
 static VALUE json_broker_set_row_count(VALUE self, VALUE row_count)
 {
-  JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
+  JSONDocumentBuilder *builder;
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   unsigned long set_count = FIX2LONG(row_count);
   set_row_count(builder, set_count);
   return Qnil;
@@ -177,8 +177,8 @@ static VALUE json_broker_set_row_count(VALUE self, VALUE row_count)
 
 static VALUE json_broker_set_repeating_array_columns(VALUE self, VALUE repeating)
 {
-  JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
+  JSONDocumentBuilder *builder;
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   
   unsigned long length = get_column_count(builder);
   struct RArray* cRepeats = RARRAY(repeating);
@@ -199,8 +199,8 @@ static VALUE json_broker_set_repeating_array_columns(VALUE self, VALUE repeating
 
 static VALUE json_broker_get_row_count(VALUE self)
 {
-  JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
+  JSONDocumentBuilder *builder;
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   unsigned long get_count = get_row_count(builder);
   VALUE count = LONG2FIX(get_count);
   return count;
@@ -208,9 +208,9 @@ static VALUE json_broker_get_row_count(VALUE self)
 
 static VALUE json_broker_consume_row(VALUE self, VALUE row)
 {
-  JSONBuilder *builder;
+  JSONDocumentBuilder *builder;
   Check_Type(row, T_ARRAY);
-  Data_Get_Struct(self, JSONBuilder, builder);
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   struct RArray* cRow = RARRAY(row);
   VALUE* row_pointer = RARRAY_PTR(cRow);
 
@@ -246,8 +246,8 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
 
 static VALUE json_broker_finalize_json(VALUE self)
 {
-  JSONBuilder *builder;
-  Data_Get_Struct(self, JSONBuilder, builder);
+  JSONDocumentBuilder *builder;
+  Data_Get_Struct(self, JSONDocumentBuilder, builder);
   char* final_json = finalize_json(builder);
   return rb_str_new2(final_json);
 }
