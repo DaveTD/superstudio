@@ -7,5 +7,6 @@
 
 uint64_t fnv_hash(uint64_t starting_hash, void *data, char type);
 uint64_t fnv_hash_byte(uint64_t hash, char *data);
+void hash_byte(uint64_t *hash, char *data);
 
 #endif //FNV_HASH_

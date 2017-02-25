@@ -33,8 +33,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
   switch(type) {
     case 1:
       byte_struct.source_short = *(short*)data;
-      for (i=0; i<sizeof(short); i++)
-      {
+      for (i=0; i<sizeof(short); i++) {
         char* byte = &byte_struct.short_bytes[sizeof(short) - 1 - i];
         hash = fnv_hash_byte(hash, byte);
       }
@@ -42,8 +41,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
     break;
     case 2:
       byte_struct.source_int = *(int*)data;
-      for (i=0; i<sizeof(int); i++)
-      {
+      for (i=0; i<sizeof(int); i++) {
         char* byte = &byte_struct.int_bytes[sizeof(int) - 1 - i];
         hash = fnv_hash_byte(hash, byte);
       }
@@ -51,8 +49,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
     break;
     case 3:
       byte_struct.source_long = *(long*)data;
-      for (i=0; i<sizeof(long); i++)
-      {
+      for (i=0; i<sizeof(long); i++) {
         char* byte = &byte_struct.long_bytes[sizeof(long) - 1 - i];
         hash = fnv_hash_byte(hash, byte);
       }
@@ -60,8 +57,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
     break;
     case 4:
       byte_struct.source_float = *(float*)data;
-      for (i=0; i<sizeof(float); i++)
-      {
+      for (i=0; i<sizeof(float); i++) {
         char* byte = &byte_struct.float_bytes[sizeof(float) - 1 - i];
         hash = fnv_hash_byte(hash, byte);
       }
@@ -69,8 +65,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
     break;
     case 5:
       byte_struct.source_double = *(double*)data;
-      for (i=0; i<sizeof(double); i++)
-      {
+      for (i=0; i<sizeof(double); i++) {
         char* byte = &byte_struct.double_bytes[sizeof(double) - 1 - i];
         hash = fnv_hash_byte(hash, byte);
       }
@@ -78,8 +73,7 @@ uint64_t fnv_hash(uint64_t hash, void *data, char type)
     break;
     case 0:
       byte_struct.source_string = (char*)data;
-      while(*byte_struct.source_string != '\0')
-      {
+      while(*byte_struct.source_string != '\0') {
          hash = fnv_hash_byte(hash, byte_struct.source_string);
          *byte_struct.source_string = *byte_struct.source_string + 1;
       }
@@ -94,4 +88,10 @@ uint64_t fnv_hash_byte(uint64_t hash, char *data)
   hash ^= (uint64_t)(*data);
   hash *= (FNV_PRIME % UINT64_MAX);
   return hash;
+}
+
+void hash_byte(uint64_t *hash, char *data)
+{
+  *hash ^= (uint64_t)(*data);
+  *hash *= (FNV_PRIME % UINT64_MAX);
 }

@@ -105,6 +105,7 @@ module Superstudio
             # we need something in here for viewed and real depths
             if json_hash[key]["type"] != "array" && key != "items"
               @type_2_paths << new_path_array
+              @type_2_indicator_names << node_name
             end
           end
           expected_mappings << interpret_json_schema(json_hash[key], new_depth, new_path_array, [], key)
@@ -128,6 +129,7 @@ module Superstudio
               # don't think we need the new path, look at later
               new_depth = new_depth + 1
               @type_4_paths << new_path_array
+              @type_4_indicator_names << node_name
             else
               # this is an array of values
               # Something like: { "type": "array", "items": { "type: "number" } }

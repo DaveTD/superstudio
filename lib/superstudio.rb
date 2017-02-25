@@ -24,13 +24,13 @@ module Superstudio
 
       @unique_threes_tags, @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags = [], [], [], [], [], [], []
       @type_2_paths, @type_3_paths, @type_4_paths, @type_5_paths = [], [], [], []
+      @type_2_indicator_names, @type_4_indicator_names = [], []
       @unique_threes_paths = []
 
       json_schema_interpretation = interpret_json_schema(@schema)
 
       if query.present?
         result_set = get_sql_results(query)
-        # create_template(json_schema_interpretation)
         set_human_to_internal_mappings(json_schema_interpretation)
         assemble_json(result_set)
       else
@@ -77,7 +77,19 @@ module Superstudio
       broker.set_hashing(@do_not_hash)
       broker.set_column_names(@sql_columns)
       broker.set_repeating_arrays(@unique_threes_tags)
-      
+      broker.set_single_node_names(@type_2_indicator_names)
+      broker.set_array_node_names(@type_4_indicator_names)
+
+      # p "@internal_use_tags: #{@internal_use_tags}"
+      # p "@quoted_tags: #{@quoted_tags}"
+      # p "@depth_tags: #{@depth_tags}"
+      # p "@real_depth_tags: #{@real_depth_tags}"
+      # p "@do_not_hash: #{@do_not_hash}"
+      # p "@sql_columns: #{@sql_columns}"
+      # p "@unique_threes_tags: #{@unique_threes_tags}"
+      # p "@type_2_indicator_names: #{@type_2_indicator_names}"
+      # p "@type_4_indicator_names: #{@type_4_indicator_names}"
+
       # We need to have map_row know what the current row is without passing it in
       # Use @row_being_used for that, piggyback off that for broker consuming that row
       result_set.rows.each do |row|

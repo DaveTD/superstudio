@@ -79,13 +79,13 @@ module Superstudio
         @real_depth_tags << 0
       end
 
-      @depth_tags << depth  # going to have to fix - appears too deep for type 3s
+      @depth_tags << (depth - 1)  # going to have to fix - appears too deep for type 3s
     end
 
     def add_to_describe_arrays(human_route, parent_path, item_path, node_type, depth)
       @unique_threes_tags << 1  # This isn't a type 3
       @human_readable_tags << human_route
-      @depth_tags << depth
+      @depth_tags << (depth - 1)
       item_string = item_path
 
       if node_type == "string"
@@ -158,7 +158,7 @@ module Superstudio
           parent = pp if object_at_depth[:path][0..-2] = pp[:path]
         end
       end
-
+      
       internal_path = ""
       internal_path = "#{internal_fork_numbers[parent[:path]][:internal_path]}" if parent.present?
       if parent.present? && parent[:path].join("_B_") != 'root'
