@@ -107,6 +107,8 @@ void set_value_arrays(JSONDocumentBuilder* builder, JSONLevelBuilder* level_defi
 
 unsigned long finalize_value_array(JSONDocumentBuilder* builder, ArrayValueJSON* value_arrays, unsigned long counter)
 {
+  printf("Finalizing value array\n");
+
   ArrayValueListItem* value_array_values = NULL;
   
   while(value_arrays->set_flag) {

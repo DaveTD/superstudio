@@ -80,15 +80,15 @@ module Superstudio
       broker.set_single_node_names(@type_2_indicator_names)
       broker.set_array_node_names(@type_4_indicator_names)
 
-      # p "@internal_use_tags: #{@internal_use_tags}"
-      # p "@quoted_tags: #{@quoted_tags}"
-      # p "@depth_tags: #{@depth_tags}"
-      # p "@real_depth_tags: #{@real_depth_tags}"
-      # p "@do_not_hash: #{@do_not_hash}"
-      # p "@sql_columns: #{@sql_columns}"
-      # p "@unique_threes_tags: #{@unique_threes_tags}"
-      # p "@type_2_indicator_names: #{@type_2_indicator_names}"
-      # p "@type_4_indicator_names: #{@type_4_indicator_names}"
+      p "@internal_use_tags: #{@internal_use_tags}"
+      p "@quoted_tags: #{@quoted_tags}"
+      p "@depth_tags: #{@depth_tags}"
+      p "@real_depth_tags: #{@real_depth_tags}"
+      p "@do_not_hash: #{@do_not_hash}"
+      p "@sql_columns: #{@sql_columns}"
+      p "@unique_threes_tags: #{@unique_threes_tags}"
+      p "@type_2_indicator_names: #{@type_2_indicator_names}"
+      p "@type_4_indicator_names: #{@type_4_indicator_names}"
 
       # We need to have map_row know what the current row is without passing it in
       # Use @row_being_used for that, piggyback off that for broker consuming that row

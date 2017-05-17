@@ -55,12 +55,16 @@ typedef struct ArrayObjectJSON
   struct ArrayObjectListItem* value_list;
   struct ArrayObjectListItem* last_list_object;
   struct ArrayObjectJSON* next;
+
+  unsigned char set_flag;
 } ArrayObjectJSON;
 
 typedef struct ArrayObjectListItem
 {
   struct JSONObject* array_object;
   struct ArrayObjectListItem* next_item;
+
+  unsigned char set_flag;
 } ArrayObjectListItem;
 
 typedef struct ArrayValueJSON
@@ -113,6 +117,7 @@ typedef struct JSONLevelBuilder
   unsigned char identifier_length;
   unsigned int identifier_int; // Internal identifier number to go ask the builder for the name of this fork from
   uint64_t parent_hash;
+  uint64_t hash;
 
   unsigned char set_flag;
   unsigned char defined_flag;
@@ -133,8 +138,32 @@ typedef struct JSONLevelBuilder
 
   struct JSONLevelStrings* active_row_strings;
   struct JSONLevelBuilder* next_child;
+  struct JSONLevelBuilder* next_child_array;
   struct JSONLevelBuilder* last_child;
 } JSONLevelBuilder;
+
+typedef struct HashList
+{
+  int length;
+  unsigned long bucket_interval;
+  struct HashListNode* next;
+  struct HashListNode* last;
+  struct HashListNode** buckets;
+} HashList;
+
+typedef struct HashListNode
+{
+  uint64_t hash;
+  struct HashListNode* next;
+  struct HashListNode* bucket_next;
+  struct HashListNode* bucket_previous;
+  struct JSONObject* related_JSON_object;
+  struct JSONLevelBuilder* related_parent_level;
+
+  // We could probably merge these two together at some point
+  struct JSONLevelBuilder* single_object_info_list;
+  struct JSONLevelBuilder* array_object_info_list;
+} HashListNode;
 
 void json_builder_initialize(JSONDocumentBuilder *json_builder_initialize);
 void set_row_count(JSONDocumentBuilder *builder, unsigned long row_count);
@@ -158,15 +187,17 @@ void consume_row(JSONDocumentBuilder *builder,
   JSONObject* parent_object, 
   unsigned long* visible_depth_array, 
   JSONLevelBuilder* level_definitions, 
-  unsigned char parent_type);
-void create_array_object(JSONDocumentBuilder* builder, uint64_t hash, uint64_t parent_hash, JSONLevelBuilder* parent_level);
-uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long column_count, unsigned long* string_sizes, char** row_strings);
-char read_type(char depth_start, char* mapped_value);
-void read_identifier(char depth_start, char* mapped_value, int* cursor, int* identifier_characters);
+  unsigned char parent_type,
+  HashList* parent_search_list);
+uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long column_count, unsigned long* string_sizes, char** row_strings, unsigned long accessing_depth);
+char read_type(unsigned long depth_start, char* mapped_value, unsigned long mapped_value_length);
+void read_identifier(char depth_start, char* mapped_value, int* cursor, int* identifier_characters, unsigned long mapped_value_length);
 void set_single_node_key_names(JSONDocumentBuilder *builder, char** key_array, unsigned long* key_sizes);
 void set_array_node_key_names(JSONDocumentBuilder *builder, char** key_array, unsigned long* key_sizes);
-void define_child_levels(JSONDocumentBuilder *builder, JSONLevelBuilder* level_definitions, JSONLevelBuilder* single_object_children, uint64_t hash, unsigned long column_count, unsigned long accessing_depth);
-void consume_single_objects(JSONDocumentBuilder* builder, JSONLevelBuilder* single_object_children, JSONObject* found_object, unsigned long accessing_depth, uint64_t hash, unsigned long visible_depth);
+void define_child_levels(JSONDocumentBuilder *builder, JSONLevelBuilder* level_definitions, JSONLevelBuilder* child_levels, JSONLevelBuilder* child_array_start, uint64_t hash, unsigned long column_count, unsigned long accessing_depth, char** row_strings, unsigned long* string_sizes);
+
+void consume_single_objects(JSONDocumentBuilder* builder, JSONLevelBuilder* child_levels, JSONObject* found_object, unsigned long accessing_depth, uint64_t hash, unsigned long visible_depth);
+void consume_array_objects(JSONDocumentBuilder* builder, JSONLevelBuilder* child_array_levels, JSONObject* found_object, unsigned long accessing_depth, uint64_t hash, unsigned long visible_depth, HashList* parent_search_list);
 
 char* finalize_json(JSONDocumentBuilder *builder);
 

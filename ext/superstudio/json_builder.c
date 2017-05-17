@@ -12,6 +12,7 @@ void json_builder_initialize(JSONDocumentBuilder *builder)
 {
   builder->root_level = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder)); 
   builder->root_level->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+  builder->root_level->next_child_array = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
 
   builder->root = (ArrayObjectJSON*)malloc(sizeof(ArrayObjectJSON));
   builder->resulting_json = NULL;
@@ -138,52 +139,122 @@ void consume_row(
   JSONObject* parent_object,
   unsigned long* visible_depth_array,
   JSONLevelBuilder* level_definitions,
-  unsigned char parent_type
+  unsigned char parent_type,
+  HashList* parent_search_list
   )
 {
+  unsigned long counter;
   uint64_t hash;
   HashListNode* found_node;
-  JSONLevelBuilder* single_object_children = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
-  single_object_children->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+  JSONLevelBuilder* child_levels = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+  JSONLevelBuilder* child_array_start = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+
+  child_levels->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+  child_levels->next_child_array = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+
+  child_array_start->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+  child_array_start->next_child_array = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+
 
   if (!level_definitions) {
+    //This level definition is at the root level.
     level_definitions = builder->root_level;
     parent_object = builder->root;
   }
 
-  hash = calculate_run_hash(level_definitions, column_count, string_sizes, row_strings);
-  found_node = find_or_create_node(builder, level_definitions, single_object_children, parent_object, hash, parent_hash, parent_type, row_strings, string_sizes, visible_depth);
 
-  single_object_children = found_node->single_object_info_list;
-  define_child_levels(builder, level_definitions, single_object_children, hash, column_count, accessing_depth);
-  initialize_child_levels(single_object_children);
-  set_single_object_child_level_definitions(level_definitions, single_object_children, hash, column_count, accessing_depth);
-  assign_single_object_data(level_definitions, single_object_children, row_strings, string_sizes, column_count, accessing_depth);
+  hash = calculate_run_hash(level_definitions, column_count, string_sizes, row_strings, accessing_depth);
 
-  consume_single_objects(builder, single_object_children, found_node->related_JSON_object, accessing_depth, hash, visible_depth);
+  found_node = find_or_create_node(
+    builder, 
+    level_definitions, 
+    child_levels, 
+    child_array_start,
+    parent_object, 
+    hash, 
+    parent_hash, 
+    parent_type, 
+    row_strings, 
+    string_sizes, 
+    visible_depth,
+    parent_search_list);
+
+  // I don't know if these two lines are needed - this should be obvious if the pointers are pointing to the same place anyway. Test later.
+  child_levels = found_node->single_object_info_list;
+  child_array_start = found_node->array_object_info_list;
+
+  define_child_levels(builder, level_definitions, child_levels, child_array_start, hash, column_count, accessing_depth, row_strings, string_sizes);
+  initialize_child_levels(child_levels);
+  set_single_object_child_level_definitions(level_definitions, child_levels, hash, column_count, accessing_depth);
+  assign_single_object_data(level_definitions, child_levels, row_strings, string_sizes, column_count, accessing_depth);
+
+  initialize_child_array_levels(child_array_start);
+  set_array_object_child_level_definitions(level_definitions, child_array_start, hash, column_count, accessing_depth, row_strings, string_sizes);
+  assign_array_object_data(level_definitions, child_array_start, row_strings, string_sizes, column_count, accessing_depth);
+
+  // 2s
+  consume_single_objects(builder, child_levels, found_node->related_JSON_object, accessing_depth, hash, visible_depth);
+  // 3s
   set_value_arrays(builder, level_definitions, hash, column_count, row_strings, string_sizes, accessing_depth);
+  // 4s
+  consume_array_objects(builder, child_array_start, parent_object, accessing_depth, hash, visible_depth, level_definitions->search_list);
+
 }
 
-void consume_single_objects(JSONDocumentBuilder* builder, JSONLevelBuilder* single_object_children, JSONObject* found_object, unsigned long accessing_depth, uint64_t hash, unsigned long visible_depth)
+void consume_single_objects(JSONDocumentBuilder* builder, JSONLevelBuilder* child_levels, JSONObject* found_object, unsigned long accessing_depth, uint64_t hash, unsigned long visible_depth)
 {
-  while(single_object_children->set_flag) {
+  while(child_levels->set_flag) {
     consume_row(builder,
-      single_object_children->active_row_strings->row_strings,
-      single_object_children->active_row_strings->string_lengths,
+      child_levels->active_row_strings->row_strings,
+      child_levels->active_row_strings->string_lengths,
       accessing_depth,
       (visible_depth + 1),
-      single_object_children->column_count,
+      child_levels->column_count,
       hash,
       found_object,
-      single_object_children->depth_array,
-      single_object_children,
-      2
+      child_levels->depth_array,
+      child_levels,
+      2,
+      child_levels->search_list
       );
-    single_object_children = single_object_children->next_child;
+    child_levels = child_levels->next_child;
   }
 }
 
-uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long column_count, unsigned long* string_sizes, char** row_strings)
+void consume_array_objects(JSONDocumentBuilder* builder, 
+  JSONLevelBuilder* child_array_levels, 
+  JSONObject* found_object, 
+  unsigned long accessing_depth, 
+  uint64_t hash, 
+  unsigned long visible_depth,
+  HashList* parent_search_list
+  )
+{
+  unsigned long counter;
+  while(child_array_levels->set_flag) {
+    counter = 0;
+    while (counter < child_array_levels->column_count) {
+      counter++;
+    }
+
+    consume_row(builder,
+      child_array_levels->active_row_strings->row_strings,
+      child_array_levels->active_row_strings->string_lengths,
+      (accessing_depth + 1),
+      (visible_depth + 1),
+      child_array_levels->column_count,
+      hash,
+      found_object,
+      child_array_levels->depth_array,
+      child_array_levels,
+      4,
+      parent_search_list
+      );
+    child_array_levels = child_array_levels->next_child_array;
+  }
+}
+
+uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long column_count, unsigned long* string_sizes, char** row_strings, unsigned long accessing_depth)
 {
   uint64_t hash = FNV_OFFSET;
   int counter = 0;
@@ -191,7 +262,7 @@ uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long c
 
   while(counter < column_count) {
     inner_counter = 0;
-    if (!level_definitions->do_not_hash[counter]) {
+    if ((!level_definitions->do_not_hash[counter]) && (accessing_depth == level_definitions->real_depth_array[counter])) {
       while (inner_counter < string_sizes[counter]) {
         hash_byte(&hash, &row_strings[counter][inner_counter]);
         inner_counter++;
@@ -200,18 +271,57 @@ uint64_t calculate_run_hash(JSONLevelBuilder* level_definitions, unsigned long c
     counter++;
   }
 
-  // printf("*********** FOR THIS RUN, THE EXPECTED HASH IS: %lu ***********\n\n", hash);
   return hash;
 }
 
-char read_type(char depth_start, char* mapped_value)
+uint64_t calculate_identified_hash(
+  JSONLevelBuilder* level_definitions,
+  unsigned long column_count,
+  unsigned long* string_sizes,
+  char** row_strings,
+  unsigned long accessing_depth,
+  int test_identifier_length,
+  char* test_identifier)
 {
-  unsigned char cursor = 0;
-  char depth_counter = 0;
+  uint64_t hash = FNV_OFFSET;
+  int counter = 0;
+  unsigned long inner_counter = 0;
+  unsigned char cursor;
+  int inner_identifier_length;
+  char* inner_test_identifier;
+
+  while(counter < column_count) {
+    if (level_definitions->real_depth_array[counter] >= accessing_depth) {
+      cursor = 0;
+      read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &inner_identifier_length, level_definitions->mapping_array_lengths[counter]);
+      inner_test_identifier = malloc(test_identifier_length + 1);
+      memcpy(inner_test_identifier, level_definitions->mapping_array[counter] + cursor, test_identifier_length);
+      inner_test_identifier[test_identifier_length] = '\0';
+
+      inner_counter = 0;
+      if ((!level_definitions->do_not_hash[counter]) && (accessing_depth == level_definitions->real_depth_array[counter]) && (inner_identifier_length == test_identifier_length)) {
+        if (!memcmp(test_identifier, inner_test_identifier, test_identifier_length)) {
+          while (inner_counter < string_sizes[counter]) {
+            hash_byte(&hash, &row_strings[counter][inner_counter]);
+            inner_counter++;
+          }
+        }
+      }
+    }
+    counter++;
+  }
+
+  return hash;
+}
+
+char read_type(unsigned long depth_start, char* mapped_value, unsigned long mapped_value_length)
+{
+  unsigned int cursor = 0;
+  unsigned long depth_counter = 0;
 
   if (depth_start > 0) {
     while (depth_counter < depth_start) {
-      if (cursor > strlen(mapped_value)) {
+      if (cursor >= mapped_value_length) {
         // Returns 0 if the mapped value doesn't go deep enough
         return 0;
       }
@@ -224,7 +334,7 @@ char read_type(char depth_start, char* mapped_value)
   return mapped_value[cursor];
 }
 
-void read_identifier(char depth_start, char* mapped_value, int* cursor, int* identifier_characters)
+void read_identifier(char depth_start, char* mapped_value, int* cursor, int* identifier_characters, unsigned long mapped_value_length)
 {
   *cursor = 0;
   unsigned char end_cursor = 0;
@@ -243,30 +353,48 @@ void read_identifier(char depth_start, char* mapped_value, int* cursor, int* ide
   *cursor += 2;
   end_cursor = *cursor;
 
-  while (mapped_value[end_cursor] != '-') {
+  while (mapped_value[end_cursor] != '-' && end_cursor < mapped_value_length) {
     *identifier_characters += 1;
     end_cursor++;
   }
 }
 
-void define_child_levels(JSONDocumentBuilder *builder, JSONLevelBuilder* level_definitions, JSONLevelBuilder* single_object_children, uint64_t hash, unsigned long column_count, unsigned long accessing_depth)
+void define_child_levels(
+  JSONDocumentBuilder *builder, 
+  JSONLevelBuilder* level_definitions, 
+  JSONLevelBuilder* child_levels, 
+  JSONLevelBuilder* child_array_start, 
+  uint64_t hash, 
+  unsigned long column_count, 
+  unsigned long accessing_depth, 
+  char** row_strings, 
+  unsigned long* string_sizes)
 {
   unsigned long counter = 0;
   int test_identifier_length;
   int identifier_int;
   int cursor;
   char* test_identifier;
+  char type;
+  uint64_t child_hash;
+
 
   while(counter < column_count) {
-    if ((level_definitions->real_depth_array[counter] == accessing_depth) && (!level_definitions->do_not_hash[counter]))
+    if ((!level_definitions->do_not_hash[counter]) && !level_definitions->defined_flag)
     {
-      if ((read_type(accessing_depth, level_definitions->mapping_array[counter]) == '2') && !level_definitions->defined_flag) {
-        read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length);
-        test_identifier = malloc(test_identifier_length + 1);
-        memcpy(test_identifier, level_definitions->mapping_array[counter] + cursor, test_identifier_length);
-        test_identifier[test_identifier_length] = '\0';
-        identifier_int = atoi(test_identifier);
-        count_increment_or_create_json_level_child(builder, single_object_children, test_identifier_length, test_identifier, identifier_int, hash);
+      type = read_type(accessing_depth, level_definitions->mapping_array[counter], level_definitions->mapping_array_lengths[counter]);
+      read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length, level_definitions->mapping_array_lengths[counter]);
+      test_identifier = malloc(test_identifier_length + 1);
+      memcpy(test_identifier, level_definitions->mapping_array[counter] + cursor, test_identifier_length);
+      test_identifier[test_identifier_length] = '\0';
+      identifier_int = atoi(test_identifier);
+
+      if (type == '2') {
+        count_increment_or_create_json_level_child(builder, child_levels, test_identifier_length, test_identifier, identifier_int, hash);
+      }
+      if (type == '4') {
+        child_hash = calculate_identified_hash(level_definitions, column_count, string_sizes, row_strings, (accessing_depth + 1), test_identifier_length, test_identifier);
+        count_increment_or_create_json_level_child_array(builder, child_array_start, test_identifier_length, test_identifier, identifier_int, hash, child_hash);
       }
     }
     else if ((level_definitions->real_depth_array[counter] == accessing_depth) && (level_definitions->do_not_hash[counter]) && (!level_definitions->defined_flag)) { 
@@ -281,9 +409,9 @@ char* finalize_json(JSONDocumentBuilder *builder)
 {
   unsigned long counter;
 
-  //builder->json_char_count += 100000;
+  builder->json_char_count += 100000;
 
-  builder->resulting_json = (char*)malloc(builder->json_char_count - 1); // Remove extra character from last comma
+  builder->resulting_json = malloc(builder->json_char_count - 1); // Remove extra character from last comma
   counter = 0;
   counter = finalize_object_array(builder, builder->root, counter);
 

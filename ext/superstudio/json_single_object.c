@@ -1,10 +1,16 @@
 #include "json_single_object.h"
 #include "hash_linked_list.h"
 
-void create_single_object(JSONDocumentBuilder* builder, uint64_t hash, uint64_t parent_hash, int identifier_int, JSONLevelBuilder* empty_json_level_builder, JSONLevelBuilder* parent_level, JSONObject* parent_object)
+void create_single_object(JSONDocumentBuilder* builder, 
+  uint64_t hash, 
+  uint64_t parent_hash, 
+  int identifier_int, 
+  JSONLevelBuilder* empty_child_object, 
+  JSONLevelBuilder* empty_child_array, 
+  JSONLevelBuilder* parent_level, 
+  JSONObject* parent_object)
 {
   SingleObjectJSON* adding_object = NULL;
-  empty_json_level_builder->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
 
   if (!parent_object->single_objects->set_flag) {
     parent_object->single_objects = (SingleObjectJSON*)calloc(1, sizeof(SingleObjectJSON));
@@ -28,40 +34,42 @@ void create_single_object(JSONDocumentBuilder* builder, uint64_t hash, uint64_t 
   adding_object->value->last_single_object = adding_object->value->single_objects;
 
   adding_object->set_flag = 1;
-  hl_insert_or_find(parent_level->search_list, hash, parent_object->last_single_object->value, empty_json_level_builder);
+  hl_insert_or_find(parent_level->search_list, hash, parent_object->last_single_object->value, parent_level, empty_child_object, empty_child_array);
 
   builder->json_char_count += adding_object->name_characters; // add enough for the name
 }
 
-void count_increment_or_create_json_level_child(JSONDocumentBuilder* builder, JSONLevelBuilder* level_finder, int identifier_length, char* identifier, int identifier_int, uint64_t parent_hash)
+void count_increment_or_create_json_level_child(JSONDocumentBuilder* builder, JSONLevelBuilder* child_levels, int identifier_length, char* identifier, int identifier_int, uint64_t parent_hash)
 {
   unsigned char found = 0;
 
-  while(level_finder->set_flag && !found) {
-    if (level_finder->identifier_length == identifier_length) {
-      if (!memcmp(level_finder->identifier, identifier, identifier_length)) {
+  while(child_levels->set_flag && !found) {
+    if (child_levels->identifier_length == identifier_length) {
+      if (!memcmp(child_levels->identifier, identifier, identifier_length)) {
         found = 1;
-        level_finder->column_count++;
+        child_levels->column_count++;
       }
     }
     if (!found) {
-      level_finder = level_finder->next_child;
+      child_levels = child_levels->next_child;
     }
   }
 
-  if (!level_finder->set_flag && !found) {
+  // Check if this even keeps the last child level selected or if we have to switch to a "last_child" thing
+  if (!child_levels->set_flag && !found) {
     // no object was found matching that identifier, make one and set its column count to 1
-    level_finder->parent_hash = parent_hash;
-    level_finder->identifier_int = identifier_int;
-    level_finder->identifier_length = identifier_length;
-    level_finder->identifier = malloc(identifier_length);
-    memcpy(level_finder->identifier, identifier, identifier_length);
-    level_finder->column_count++;
-    level_finder->set_flag = 1;
-    level_finder->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+    child_levels->parent_hash = parent_hash;
+    child_levels->identifier_int = identifier_int;
+    child_levels->identifier_length = identifier_length;
+    child_levels->identifier = malloc(identifier_length);
+    memcpy(child_levels->identifier, identifier, identifier_length);
+    child_levels->column_count++;
+    child_levels->set_flag = 1;
+    child_levels->next_child = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
+    child_levels->next_child_array = (JSONLevelBuilder*)calloc(1, sizeof(JSONLevelBuilder));
 
-    level_finder->search_list = (HashList*)calloc(1, sizeof(HashList));
-    initialize_search_list(level_finder, builder->row_count);
+    child_levels->search_list = (HashList*)calloc(1, sizeof(HashList));
+    initialize_search_list(child_levels, builder->row_count);
 
     found = 1;
   }
@@ -69,7 +77,7 @@ void count_increment_or_create_json_level_child(JSONDocumentBuilder* builder, JS
 
 void initialize_child_levels(JSONLevelBuilder* single_object_children)
 {
-  while(single_object_children->set_flag && !single_object_children->defined_flag) {
+  while(single_object_children->set_flag && !single_object_children->defined_flag) {    
     single_object_children->active_row_strings = (JSONLevelStrings*)malloc(sizeof(JSONLevelStrings));
     single_object_children->active_row_strings->set_strings_count = 0;
 
@@ -105,10 +113,10 @@ void set_single_object_child_level_definitions(JSONLevelBuilder* level_definitio
   while(counter < column_count) {
     single_object_children = single_object_info_list;
 
-    if ((read_type(accessing_depth, level_definitions->mapping_array[counter]) == '2')) {
+    if ((read_type(accessing_depth, level_definitions->mapping_array[counter], level_definitions->mapping_array_lengths[counter]) == '2')) {
       found = 0;
       while(single_object_children->set_flag && !found) {
-        read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length);
+        read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length, level_definitions->mapping_array_lengths[counter]);
         test_identifier = malloc(test_identifier_length);
         memcpy(test_identifier, level_definitions->mapping_array[counter] + cursor, test_identifier_length);
         identifier_int = atoi(test_identifier);
@@ -148,9 +156,9 @@ void assign_single_object_data(JSONLevelBuilder* level_definitions, JSONLevelBui
   while(counter < column_count) {  
     single_object_children = single_object_info_list;
 
-    if (read_type(accessing_depth, level_definitions->mapping_array[counter]) == '2') {
+    if (read_type(accessing_depth, level_definitions->mapping_array[counter], level_definitions->mapping_array_lengths[counter]) == '2') {
       found = 0;
-      read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length);
+      read_identifier(accessing_depth, level_definitions->mapping_array[counter], &cursor, &test_identifier_length, level_definitions->mapping_array_lengths[counter]);
       test_identifier = malloc(test_identifier_length);
       memcpy(test_identifier, level_definitions->mapping_array[counter] + cursor, test_identifier_length);
       
@@ -180,6 +188,8 @@ void assign_single_object_data(JSONLevelBuilder* level_definitions, JSONLevelBui
 
 unsigned long finalize_single_objects(JSONDocumentBuilder* builder, SingleObjectJSON* level_single_objects, unsigned long counter)
 {
+  printf("Finalizing single object\n");
+
   while(level_single_objects->set_flag) {
     memcpy(builder->resulting_json + counter, cm, 1);
     counter++;
@@ -193,6 +203,7 @@ unsigned long finalize_single_objects(JSONDocumentBuilder* builder, SingleObject
     counter = finalize_key_values(builder, level_single_objects->value->single_values, level_single_objects->value, counter);
     counter = finalize_single_objects(builder, level_single_objects->value->single_objects, counter);
     counter = finalize_value_array(builder, level_single_objects->value->array_values, counter);
+    counter = finalize_object_array(builder, level_single_objects->value->array_objects, counter);
 
     memcpy(builder->resulting_json + counter, cbr, 1);
     counter++;

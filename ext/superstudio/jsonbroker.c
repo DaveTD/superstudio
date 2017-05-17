@@ -291,7 +291,7 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     counter++;
   }
 
-  consume_row(builder, row_strings, string_sizes, 0, 0, length, 0, NULL, builder->root_level->depth_array, NULL, 4);
+  consume_row(builder, row_strings, string_sizes, 0, 0, length, 0, NULL, builder->root_level->depth_array, NULL, 4, builder->root_level->search_list);
   return Qnil;
 }
 
