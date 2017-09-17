@@ -290,14 +290,12 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     string_sizes[counter] = RSTRING_LEN(in_loop_rstring);
     counter++;
   }
-
-  consume_row(builder, row_strings, string_sizes, 0, 0, length, 0, NULL, builder->root_level->depth_array, NULL, 4, builder->root_level->search_list);
+  consume_row(builder, row_strings, string_sizes, 0, 0, length, 0, NULL, builder->root_level->depth_array, NULL, 4, 0, builder->root_level->search_list);
   return Qnil;
 }
 
 static VALUE json_broker_finalize_json(VALUE self)
 {
-  printf("Finalizing...\n");
   JSONDocumentBuilder *builder;
   Data_Get_Struct(self, JSONDocumentBuilder, builder);
   char* final_json = finalize_json(builder);

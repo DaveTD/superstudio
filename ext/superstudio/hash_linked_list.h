@@ -11,7 +11,7 @@ uint64_t hl_first(HashList *list);
 int find_target_bucket(uint64_t passed_hash, unsigned long interval);
 void hl_set_json_object(HashListNode* node, JSONObject* related_object);
 
-HashListNode* find_or_create_node(JSONDocumentBuilder* builder, 
+JSONObject* find_or_create_node(JSONDocumentBuilder* builder, 
   JSONLevelBuilder* level_definitions, 
   JSONLevelBuilder* child_levels,
   JSONLevelBuilder* child_array_start,
@@ -23,6 +23,7 @@ HashListNode* find_or_create_node(JSONDocumentBuilder* builder,
   unsigned long* string_sizes, 
   unsigned long visible_depth, 
   HashList* parent_search_list);
+
 HashListNode* hl_insert_or_find(HashList *list, 
   uint64_t passed_hash, 
   JSONObject* related_object,
@@ -30,6 +31,8 @@ HashListNode* hl_insert_or_find(HashList *list,
   JSONLevelBuilder* related_single_json_info,
   JSONLevelBuilder* related_object_info_list
   );
+
+
 HashListNode* hl_find_node(HashList *list, uint64_t passed_hash);
 
 #endif // HASH_LIST_

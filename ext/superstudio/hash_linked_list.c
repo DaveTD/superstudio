@@ -2,18 +2,18 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
-// #include "json_builder.h"
 #include "hash_linked_list.h"
 
 void hl_initialize(HashList *list, unsigned long query_rows)
 {
   long i;
-  long bucket_count = ((long)(query_rows / (log10(query_rows)/log10(2))) + 1);
+  long bucket_count = ((long)((query_rows + 1) / (log10(query_rows + 1)/log10(2))) + 1);
   list->length = 0;
   list->bucket_interval = UINT64_MAX / bucket_count;
   list->next = NULL;
   list->last = NULL;
-  list->buckets = malloc(bucket_count * sizeof(HashListNode*));
+  list->buckets = calloc(1, bucket_count * sizeof(HashListNode*));
+
   for (i=0; i<bucket_count; i++) {
     *(list->buckets + i) = NULL;
   }
@@ -21,11 +21,11 @@ void hl_initialize(HashList *list, unsigned long query_rows)
 
 void print_list_details(HashList *list)
 {
-  // printf("Length: %i\n", list->length);
+  printf("Length: %i\n", list->length);
   HashListNode *i;
   i = list->next;
   while(i) {
-    // printf("Hash: %lu\n", i->hash);
+    printf("Hash: %lu\n", i->hash);
     i = i->next;
   }
 }
@@ -57,7 +57,7 @@ HashListNode* hl_insert_or_find(HashList *list,
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
 
   if (!list->next) {
-    HashListNode *new_node = (HashListNode*)malloc(sizeof(HashListNode));
+    HashListNode *new_node = (HashListNode*)calloc(1, sizeof(HashListNode));
 
     new_node->hash = passed_hash;
     new_node->next = NULL;
@@ -69,7 +69,6 @@ HashListNode* hl_insert_or_find(HashList *list,
     new_node->array_object_info_list = related_object_info_list;
 
     list->last = list->next = list->buckets[bucket_number] = new_node;
-
     increment_length(list);
     return list->next;
   }
@@ -78,11 +77,14 @@ HashListNode* hl_insert_or_find(HashList *list,
     if (found_node->bucket_previous != NULL) {
       found_node->bucket_previous->bucket_next = found_node->bucket_next;
       found_node->bucket_next = list->buckets[bucket_number];
+
+      found_node->bucket_previous = NULL;
+
       list->buckets[bucket_number] = found_node;
     }
     return found_node;
   } else {
-    HashListNode *new_node = (HashListNode*)malloc(sizeof(HashListNode));
+    HashListNode *new_node = (HashListNode*)calloc(1, sizeof(HashListNode));
     new_node->hash = passed_hash;
     new_node->next = NULL;
     new_node->bucket_next = NULL;
@@ -111,10 +113,10 @@ HashListNode* hl_find_node(HashList *list, uint64_t passed_hash)
 {
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
   HashListNode *i = list->buckets[bucket_number];
+
   if (i == NULL) {
     return NULL;
   }
-
   while(i) {
     if (i->hash == passed_hash) {
       return i;
@@ -124,7 +126,7 @@ HashListNode* hl_find_node(HashList *list, uint64_t passed_hash)
   return NULL;
 }
 
-HashListNode* find_or_create_node(
+JSONObject* find_or_create_node(
   JSONDocumentBuilder* builder, 
   JSONLevelBuilder* level_definitions, 
   JSONLevelBuilder* child_levels,
@@ -140,25 +142,80 @@ HashListNode* find_or_create_node(
   )
 {
   HashListNode* found_node;
+  JSONObject* found_object = NULL;
+  JSONLevelBuilder* found_level_definitions;
+  SingleObjectJSON* related_child_objects;
+  SingleObjectJSON* single_parent_object; // We need to search in two directions - through each child and through each child's single object children
+  int found = 0;
 
-  found_node = hl_find_node(parent_search_list, hash);
-  // A node gets found - or not. If no parent is found, a parent node will be created based on the parent_type
-  if (found_node == NULL) {
-    builder->json_char_count += 3; // Starting, ending brace and comma
-    // There was no found node in that search list, so we have to create an object
-    if (parent_type == 4) {
-      create_array_object(builder, hash, parent_hash, parent_search_list, level_definitions, child_levels, child_array_start, level_definitions->identifier_int);
-    } else {
-      create_single_object(builder, hash, parent_hash, level_definitions->identifier_int, child_levels, child_array_start, level_definitions, parent_object);  
+  builder->json_char_count += 3; // Starting, ending brace and comma
+
+  // Dev note:
+  // The create calls will handle duplicates where additional stuff doesn't need to be added
+  if (parent_type == 4) {
+
+    create_array_object(builder, 
+      hash, 
+      parent_hash, 
+      parent_search_list, 
+      level_definitions, 
+      child_levels, 
+      child_array_start, 
+      level_definitions->identifier_int);
+    
+    found_node = hl_find_node(parent_search_list, hash);
+    if (found_node) {
+      found_object = found_node->related_JSON_object;
+      found_level_definitions = found_node->related_parent_level;
+    }
+  } else {
+
+    create_single_object(builder, 
+      hash, 
+      parent_hash, 
+      level_definitions->identifier_int, 
+      child_levels, 
+      child_array_start, 
+      level_definitions, 
+      parent_search_list,
+      parent_object);  
+
+    // Dev note:
+    // When adding a single object, we're finding the parent hash because the single object is hashed as well
+    // Single objects are a 1-1 relationship
+
+    related_child_objects = parent_object->single_objects;
+    while (related_child_objects->set_flag && !found) {
+      single_parent_object = related_child_objects;
+      if (single_parent_object->identifier_int == level_definitions->identifier_int) {
+        found = 1;
+      } else {
+        single_parent_object = single_parent_object->value->single_objects;
+        while (single_parent_object->set_flag && !found) {
+          if (single_parent_object->identifier_int == level_definitions->identifier_int) {
+            found = 1;
+          } else {
+            single_parent_object = single_parent_object->next_item;
+          }
+        }
+      }
+      related_child_objects = related_child_objects->next_item;
     }
 
-    found_node = hl_find_node(parent_search_list, hash);
-
-    // probably move this back out to json_builder.c at some point
-    set_key_values(builder, string_sizes, row_strings, hash, visible_depth, found_node);
+    if (found) {
+      found_object = single_parent_object->value;
+    } else {
+      found_object = parent_object;
+    }
+    found_level_definitions = level_definitions;
   }
 
-  return found_node;
+  if (found_object) {
+    set_key_values(builder, string_sizes, row_strings, hash, visible_depth, found_level_definitions, found_object);
+    set_value_arrays(builder, found_level_definitions, hash, found_level_definitions->column_count, row_strings, string_sizes, visible_depth, found_object);
+  }
+  
+  return found_object;
 }
 
 void hl_set_json_object(HashListNode* node, JSONObject* related_object)

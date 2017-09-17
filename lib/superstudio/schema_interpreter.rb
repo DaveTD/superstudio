@@ -3,25 +3,6 @@ module Superstudio
 
     # TODO: Refactor this, it's only being used in the generator and it's out of step with SchemaInternalDefiner.set_human_to_internal_mappings
     def create_template(expected_mappings)
-      
-      # while max_depth != 0
-      #   objects_at_depth = fork_nodes.select {|j| j[:depth] == max_depth}
-      #   objects_at_depth.each do |object|
-      #     object_path_string = object[:path].join("_B_")
-      #     object_properties = expected_mappings.select { |mappings| mappings[:path] == object[:path] }
-      #     object_string = "{"
-      #     object_properties.each do |property, index|
-      #       expected_hash_key = "#{object_path_string}_P_#{property[:name]}"
-      #       object_string << "\"#{property[:name]}\":{#{expected_hash_key}},"
-      #     end
-      #     object_string = object_string.chomp(",")
-      #     object_string << "}"
-
-      #     @template_bodies[object[:path]] = object_string
-      #   end
-      #   max_depth = max_depth - 1
-      # end
-
       fork_nodes = expected_mappings.uniq { |i| i[:path] }
       max_depth = expected_mappings.max_by { |x| x[:depth] }[:depth]
 
@@ -51,7 +32,6 @@ module Superstudio
           object_string = object_string.chomp(",")
           object_string << "}"
 
-          #@template_bodies[object[:path]] = {} if @template_bodies[object[:path]].nil?
           @template_bodies[object[:path]] = object_string
         end
 
@@ -96,19 +76,30 @@ module Superstudio
           end
         end
 
+        # byebug
         if json_hash[key].is_a?(Hash)
           new_path_array = path_array.dup
           new_depth = depth
+          # byebug
           if node_name != "properties" && node_name != "items" && node_name != "dependencies"
             new_path_array << node_name
             new_depth = new_depth + 1
             # we need something in here for viewed and real depths
-            if json_hash[key]["type"] != "array" && key != "items"
+            if json_hash[key]["type"] != "array"  && key != "items"
               @type_2_paths << new_path_array
-              @type_2_indicator_names << node_name
+              # @type_2_indicator_names << node_name
             end
           end
-          expected_mappings << interpret_json_schema(json_hash[key], new_depth, new_path_array, [], key)
+          # if node_name == "properties" && json_hash[key]["type"] == "array"
+          #   # return { depth: new_depth, path: new_path_array << key, name: node_name, node_type: "array" }
+          #   # expected_mappings << interpret_json_schema(json_hash[key], new_depth + 1, new_path_array << key, [], key)
+          #   alt_path = new_path_array.dup
+          #   alt_path << key
+          #   expected_mappings << { depth: new_depth + 1, path: alt_path, name: node_name, node_type: "array" }
+
+          # end
+            expected_mappings << interpret_json_schema(json_hash[key], new_depth, new_path_array, [], key)
+          # end
         end
 
         if key == "items"
@@ -124,15 +115,19 @@ module Superstudio
             return { depth: depth, path: new_path_array, name: node_name, node_type: "custom_array" }
           else
             # detect if this is an array of objects or values
+            # if path_array.last != "root"
+            #   expected_mappings << { depth: depth, path: path_array, name: path_array.last, node_type: "array" }
+            # end
             if json_hash[key]["type"].downcase == "object"
               # Something like: { "type": "array", "items": { "type": "object", "properties" : { <stuff...> }}}
               # don't think we need the new path, look at later
               new_depth = new_depth + 1
               @type_4_paths << new_path_array
-              @type_4_indicator_names << node_name
+              # @type_4_indicator_names << node_name
             else
               # this is an array of values
               # Something like: { "type": "array", "items": { "type: "number" } }
+
               @type_3_paths << new_path_array
             end
           end

@@ -22,9 +22,9 @@ module Superstudio
       @json_result = ""
       @json_nodes, @required_columns = {}, {}
 
-      @unique_threes_tags, @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags = [], [], [], [], [], [], []
+      @unique_threes_tags, @human_readable_tags, @internal_use_tags, @quoted_tags, @do_not_hash, @depth_tags, @real_depth_tags, @column_names = [], [], [], [], [], [], [], []
       @type_2_paths, @type_3_paths, @type_4_paths, @type_5_paths = [], [], [], []
-      @type_2_indicator_names, @type_4_indicator_names = [], []
+      @type_2_indicator_names, @type_4_indicator_names = ["root"], []
       @unique_threes_paths = []
 
       json_schema_interpretation = interpret_json_schema(@schema)
@@ -62,12 +62,12 @@ module Superstudio
       @human_readable_tags.each_with_index do |value, index|
         working_row << (@json_nodes[value.to_sym].to_s)
       end
-
       return working_row
     end
 
     def assemble_json(result_set)
       @sql_columns = result_set.columns
+
 
       broker = Superstudio::JsonBroker.new()
       broker.set_row_count(result_set.count)
@@ -75,23 +75,25 @@ module Superstudio
       broker.set_quotes(@quoted_tags)
       broker.set_depths(@depth_tags, @real_depth_tags)
       broker.set_hashing(@do_not_hash)
-      broker.set_column_names(@sql_columns)
+      broker.set_column_names(@column_names)
       broker.set_repeating_arrays(@unique_threes_tags)
       broker.set_single_node_names(@type_2_indicator_names)
       broker.set_array_node_names(@type_4_indicator_names)
 
-      p "@internal_use_tags: #{@internal_use_tags}"
-      p "@quoted_tags: #{@quoted_tags}"
-      p "@depth_tags: #{@depth_tags}"
-      p "@real_depth_tags: #{@real_depth_tags}"
-      p "@do_not_hash: #{@do_not_hash}"
-      p "@sql_columns: #{@sql_columns}"
-      p "@unique_threes_tags: #{@unique_threes_tags}"
-      p "@type_2_indicator_names: #{@type_2_indicator_names}"
-      p "@type_4_indicator_names: #{@type_4_indicator_names}"
+      # p "@internal_use_tags: #{@internal_use_tags}"
+      # p "@quoted_tags: #{@quoted_tags}"
+      # p "@depth_tags: #{@depth_tags}"
+      # p "@real_depth_tags: #{@real_depth_tags}"
+      # p "@do_not_hash: #{@do_not_hash}"
+      # p "@sql_columns: #{@sql_columns}"
+      # p "@column_names: #{@column_names}"
+      # p "@unique_threes_tags: #{@unique_threes_tags}"
+      # p "@type_2_indicator_names: #{@type_2_indicator_names}"
+      # p "@type_4_indicator_names: #{@type_4_indicator_names}"
+      # p "@type_2_paths: #{@type_2_paths}"
+      # p "@type_3_paths: #{@type_3_paths}"
+      # p "@type_4_paths: #{@type_4_paths}"
 
-      # We need to have map_row know what the current row is without passing it in
-      # Use @row_being_used for that, piggyback off that for broker consuming that row
       result_set.rows.each do |row|
         @row_being_used = row
         @json_nodes = {}

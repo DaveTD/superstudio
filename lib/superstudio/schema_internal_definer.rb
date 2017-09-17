@@ -14,6 +14,15 @@ module Superstudio
 
         objects_at_depth.each do |candidate|
           # ex. {depth: 1, path: ["root"], name: "id", node_type: "integer"}
+
+          # This isn't going to work properly for value arrays
+          if @type_3_paths.include?(candidate[:path])
+            @column_names << candidate[:path].last
+          else
+            @column_names << candidate[:name]
+          end
+          # byebug
+
           forks_at_depth.each do |p|
             if candidate[:path] == p[0]
               # Add the internal path to the internal mapping
@@ -22,6 +31,7 @@ module Superstudio
                 handle_array_stop_path(type_5_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], p[1][:internal_path], "5.#{type_5_count}", candidate[:depth])
               elsif @type_3_paths.include?(p[0])
                 type_3_count += 1
+                
                 handle_array_stop_path(type_3_already_found, p[0], p[1][:internal_path], "#{candidate[:path].join("_B_")}_A_#{candidate[:name]}", candidate[:node_type], p[1][:internal_path], "3.#{type_3_count}", candidate[:depth])
               else
                 type_1_count += 1
@@ -74,7 +84,8 @@ module Superstudio
       if parent_path.present?
         item_string = "#{parent_path}-#{item_path}"
         # Count all of the 4s in the internal string, but remove those that are a count of a type
-        @real_depth_tags << (item_string.scan(/4/).count - item_string.scan(/\.4/).count)
+        # @real_depth_tags << (item_string.scan(/4/).count - item_string.scan(/\.4/).count)
+        @real_depth_tags << (item_string.scan(/4./).count)
       else
         @real_depth_tags << 0
       end
@@ -98,7 +109,8 @@ module Superstudio
         item_string = "#{parent_path}-#{item_path}"
         @internal_use_tags << item_string
         # Count all of the 4s in the internal string, but remove those that are a count of a type
-        @real_depth_tags << (item_string.scan(/4/).count - item_string.scan(/\.4/).count)
+        # @real_depth_tags << (item_string.scan(/4/).count - item_string.scan(/\.4/).count)
+        @real_depth_tags << (item_string.scan(/4./).count)
       else
         @internal_use_tags << item_string
         @real_depth_tags << 0
@@ -114,31 +126,51 @@ module Superstudio
     def convert_fork_paths_to_base_route_numbers(fork_nodes, max_depth)
       depth_counter = 0
       internal_fork_numbers = {}
+      two_at_depth_counter, three_at_depth_counter, four_at_depth_counter, five_at_depth_counter = 0, 0, 0, 0
 
       while depth_counter <= max_depth
-        two_at_depth_counter, three_at_depth_counter, four_at_depth_counter, five_at_depth_counter = 0, 0, 0, 0
+        # two_at_depth_counter, three_at_depth_counter, four_at_depth_counter, five_at_depth_counter = 0, 0, 0, 0
         objects_at_depth = fork_nodes.select {|j| j[:depth] == depth_counter}
         possible_parents = fork_nodes.select {|j| j[:depth] == (depth_counter - 1)}
-        
+
         objects_at_depth.each do |o|
           if o[:path].join("_B_") == 'root'
             internal_fork_numbers[o[:path]] = { internal_path: '', depth: o[:depth] }
             break
           end
+
           if @type_2_paths.include?(o[:path])
             two_at_depth_counter += 1
             generate_internal_fork_number_of_type(internal_fork_numbers, possible_parents, o, 2, two_at_depth_counter) 
-          end
-
-          if @type_3_paths.include?(o[:path])
-            three_at_depth_counter += 1
-            generate_internal_fork_number_of_type(internal_fork_numbers, possible_parents, o, 3, three_at_depth_counter)
           end
 
           if @type_4_paths.include?(o[:path])
             four_at_depth_counter += 1
             generate_internal_fork_number_of_type(internal_fork_numbers, possible_parents, o, 4, four_at_depth_counter)
           end
+
+          if @type_3_paths.include?(o[:path])
+            three_at_depth_counter += 1
+            # We also need to check some extra possible parents here. It appears that when a type 3 is first, or possibly 
+            # the only child in an object, the object will fail to be accounted for.
+
+            ob = o.dup
+            ob[:path] = ob[:path][0..-2]
+
+            if internal_fork_numbers[ob[:path]].nil?
+
+              @type_4_paths.each_with_index do |four_path, idx|
+                if four_path.length + 1 == o[:depth]
+                  possible_parents << { depth: o[:depth] - 1, path: four_path, name: four_path.last, node_type: "array" }
+                  four_at_depth_counter += 1
+                  generate_internal_fork_number_of_type(internal_fork_numbers, possible_parents, ob, 4, four_at_depth_counter)
+                end
+              end
+            end
+
+            generate_internal_fork_number_of_type(internal_fork_numbers, possible_parents, o, 3, three_at_depth_counter)
+          end
+
 
           if @type_5_paths.include?(o[:path])
             five_at_depth_counter += 1
@@ -155,14 +187,21 @@ module Superstudio
       parent = nil
       if possible_parents
         possible_parents.each do |pp|
-          parent = pp if object_at_depth[:path][0..-2] = pp[:path]
+          parent = pp if object_at_depth[:path][0..-2] == pp[:path]
         end
       end
       
+      if (type == 2)
+        @type_2_indicator_names[number] = object_at_depth[:path].last
+      end
+      if (type == 4)
+        @type_4_indicator_names[number - 1] = object_at_depth[:path].last
+      end
       internal_path = ""
       internal_path = "#{internal_fork_numbers[parent[:path]][:internal_path]}" if parent.present?
-      if parent.present? && parent[:path].join("_B_") != 'root'
-        internal_path << "-" # if parent.present? && parent[:path] != 'root'
+      
+      if parent.present? && parent[:path].join("_B_") != 'root' && internal_fork_numbers[parent[:path]][:internal_path] != ''
+        internal_path << "-"
       end
       internal_path << "#{type}.#{number}"
       internal_fork_numbers[object_at_depth[:path]] = { internal_path: internal_path, depth: object_at_depth[:depth] }

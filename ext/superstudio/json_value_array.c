@@ -11,23 +11,18 @@ void add_to_array(
   unsigned long column_name_length,
   unsigned long repeatable,
   unsigned long quoted,
-  JSONLevelBuilder* parent_level
+  JSONObject* parent_object
   )
 {
-  HashListNode* found_node;
-  JSONObject* parent_object;
   ArrayValueJSON* array_search;
   ArrayValueListItem* array_values_search;
   unsigned char item_added = 0;
   int repeat_found = 0;
 
-  found_node = hl_find_node(parent_level->search_list, hash);
-  parent_object = found_node->related_JSON_object;
   array_search = parent_object->array_values;
-
   while(!item_added) {
     if (!array_search->set_flag) {
-      array_search->name = (char*)malloc(column_name_length);
+      array_search->name = (char*)calloc(1, column_name_length);
       memcpy(array_search->name, column_name, column_name_length);
       array_search->name_characters = column_name_length;
 
@@ -46,14 +41,12 @@ void add_to_array(
 
     if (!memcmp(array_search->name, column_name, column_name_length) && (array_search->name_characters == column_name_length) && !item_added) {
       builder->json_char_count += 1; // This array already existed, it needs a comma
-
       if (repeatable) {
         initialize_value_item(builder, array_search->last_list_value, string_size, string_value, quoted);
         array_search->last_list_value = array_search->last_list_value->next_value;
         item_added = 1;
       } else {
         array_values_search = array_search->value_list;
-        // Since we can't repeat, we need to identify if this value already exists
         while(array_values_search->set_flag && !repeat_found) {
           if (((memcmp(array_values_search->array_value, string_value, string_size) == 0) && (array_values_search->value_characters == string_size))) {
             repeat_found = 1;
@@ -75,7 +68,7 @@ void initialize_value_item(JSONDocumentBuilder* builder, ArrayValueListItem *tar
 {
   target->next_value = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
   target->value_characters = value_characters;
-  target->array_value = (char*)malloc(value_characters);
+  target->array_value = (char*)calloc(1, value_characters);
   memcpy(target->array_value, array_value, value_characters);
   target->set_flag = 1;
 
@@ -83,12 +76,20 @@ void initialize_value_item(JSONDocumentBuilder* builder, ArrayValueListItem *tar
   if (quoted) { builder->json_char_count += 2; }
 }
 
-void set_value_arrays(JSONDocumentBuilder* builder, JSONLevelBuilder* level_definitions, uint64_t hash, unsigned long column_count, char** row_strings, unsigned long* string_sizes, unsigned long accessing_depth)
+void set_value_arrays(
+  JSONDocumentBuilder* builder, 
+  JSONLevelBuilder* level_definitions, 
+  uint64_t hash, 
+  unsigned long column_count, 
+  char** row_strings, 
+  unsigned long* string_sizes, 
+  unsigned long accessing_depth,
+  JSONObject* parent_object
+  )
 {
   int counter = 0;
-  if (level_definitions->contains_array_value_flag) {
     while(counter < column_count) {
-      if ((level_definitions->real_depth_array[counter] == accessing_depth) && (level_definitions->do_not_hash[counter])) {
+      if ((level_definitions->depth_array[counter] == (accessing_depth + 1)) && (level_definitions->do_not_hash[counter])) {
         add_to_array(builder, 
           hash, 
           row_strings[counter],
@@ -97,18 +98,15 @@ void set_value_arrays(JSONDocumentBuilder* builder, JSONLevelBuilder* level_defi
           level_definitions->column_name_lengths[counter],
           level_definitions->repeating_array_columns[counter],
           level_definitions->quote_array[counter],
-          level_definitions
+          parent_object
           );
       }
       counter++;
     }
-  }
 }
 
 unsigned long finalize_value_array(JSONDocumentBuilder* builder, ArrayValueJSON* value_arrays, unsigned long counter)
 {
-  printf("Finalizing value array\n");
-
   ArrayValueListItem* value_array_values = NULL;
   
   while(value_arrays->set_flag) {

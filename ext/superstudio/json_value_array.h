@@ -15,9 +15,9 @@ void add_to_array(
   unsigned long column_name_length,
   unsigned long repeatable,
   unsigned long quoted,
-  JSONLevelBuilder* parent_level
+  JSONObject* parent_object
   );
-void set_value_arrays(JSONDocumentBuilder* builder, JSONLevelBuilder* level_definitions, uint64_t hash, unsigned long column_count, char** row_strings, unsigned long* string_sizes, unsigned long accessing_depth);
+void set_value_arrays(JSONDocumentBuilder* builder, JSONLevelBuilder* level_definitions, uint64_t hash, unsigned long column_count, char** row_strings, unsigned long* string_sizes, unsigned long accessing_depth, JSONObject* parent_object);
 void initialize_value_item(JSONDocumentBuilder* builder, ArrayValueListItem *target, unsigned long value_characters, char* array_value, unsigned long quoted);
 unsigned long finalize_value_array(JSONDocumentBuilder* builder, ArrayValueJSON* value_arrays, unsigned long counter);
 
