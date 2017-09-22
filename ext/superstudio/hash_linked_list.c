@@ -2,21 +2,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+#include "ss_alloc.h"
 #include "hash_linked_list.h"
+#include "json_value.h"
+#include "json_value_array.h"
+#include "json_object_array.h"
+#include "json_single_object.h"
 
-void hl_initialize(HashList *list, unsigned long query_rows)
+void hl_initialize(HashList *list, SSMemoryStack* memory_stack, unsigned long query_rows)
 {
-  long i;
   long bucket_count = ((long)((query_rows + 1) / (log10(query_rows + 1)/log10(2))) + 1);
   list->length = 0;
   list->bucket_interval = UINT64_MAX / bucket_count;
   list->next = NULL;
   list->last = NULL;
-  list->buckets = calloc(1, bucket_count * sizeof(HashListNode*));
-
-  for (i=0; i<bucket_count; i++) {
-    *(list->buckets + i) = NULL;
-  }
+  list->buckets = (HashListNode**)ss_alloc(memory_stack, 1, bucket_count * sizeof(HashListNode*));
 }
 
 void print_list_details(HashList *list)
@@ -50,14 +50,15 @@ HashListNode* hl_insert_or_find(HashList *list,
   JSONObject* related_object,
   JSONLevelBuilder* related_parent_level, 
   JSONLevelBuilder* related_single_json_info,
-  JSONLevelBuilder* related_object_info_list
+  JSONLevelBuilder* related_object_info_list,
+  SSMemoryStack* memory_stack
   )
 {
   HashListNode* found_node;
   int bucket_number = find_target_bucket(passed_hash, list->bucket_interval);
 
   if (!list->next) {
-    HashListNode *new_node = (HashListNode*)calloc(1, sizeof(HashListNode));
+    HashListNode *new_node = (HashListNode*)ss_alloc(memory_stack, 1, sizeof(HashListNode));
 
     new_node->hash = passed_hash;
     new_node->next = NULL;
@@ -84,7 +85,7 @@ HashListNode* hl_insert_or_find(HashList *list,
     }
     return found_node;
   } else {
-    HashListNode *new_node = (HashListNode*)calloc(1, sizeof(HashListNode));
+    HashListNode *new_node = (HashListNode*)ss_alloc(memory_stack, 1, sizeof(HashListNode));
     new_node->hash = passed_hash;
     new_node->next = NULL;
     new_node->bucket_next = NULL;
@@ -133,7 +134,6 @@ JSONObject* find_or_create_node(
   JSONLevelBuilder* child_array_start,
   JSONObject* parent_object, 
   uint64_t hash, 
-  uint64_t parent_hash, 
   unsigned char parent_type,
   char** row_strings,
   unsigned long* string_sizes,
@@ -156,7 +156,6 @@ JSONObject* find_or_create_node(
 
     create_array_object(builder, 
       hash, 
-      parent_hash, 
       parent_search_list, 
       level_definitions, 
       child_levels, 
@@ -172,18 +171,12 @@ JSONObject* find_or_create_node(
 
     create_single_object(builder, 
       hash, 
-      parent_hash, 
       level_definitions->identifier_int, 
-      child_levels, 
-      child_array_start, 
-      level_definitions, 
-      parent_search_list,
       parent_object);  
 
     // Dev note:
     // When adding a single object, we're finding the parent hash because the single object is hashed as well
     // Single objects are a 1-1 relationship
-
     related_child_objects = parent_object->single_objects;
     while (related_child_objects->set_flag && !found) {
       single_parent_object = related_child_objects;
@@ -211,8 +204,8 @@ JSONObject* find_or_create_node(
   }
 
   if (found_object) {
-    set_key_values(builder, string_sizes, row_strings, hash, visible_depth, found_level_definitions, found_object);
-    set_value_arrays(builder, found_level_definitions, hash, found_level_definitions->column_count, row_strings, string_sizes, visible_depth, found_object);
+    set_key_values(builder, string_sizes, row_strings, visible_depth, found_level_definitions, found_object);
+    set_value_arrays(builder, found_level_definitions, found_level_definitions->column_count, row_strings, string_sizes, visible_depth, found_object);
   }
   
   return found_object;

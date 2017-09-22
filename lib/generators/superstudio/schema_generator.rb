@@ -4,6 +4,10 @@ require 'rails/generators/base'
 module Superstudio
   module Generators
     class SchemaGenerator < Rails::Generators::NamedBase
+      include Superstudio::SchemaReader
+
+      argument :file_arg, type: 'string', required: false
+
       source_root File.expand_path("../../templates", __FILE__)
 
       desc "Creates a json schema (draft v4) for all the columns in a database table."
@@ -27,8 +31,13 @@ module Superstudio
         file_data = file_data.chomp(",")
         file_data << template_footer
 
-        model_klass_name = model_klass.name.gsub(":", "").underscore
-        create_file "app/json_schemas/#{model_klass_name}.json.schema", file_data
+        if file_arg.nil?
+          model_klass_name = model_klass.name.gsub(":", "").underscore
+        else
+          model_klass_name = file_arg
+        end
+
+        create_file "#{schemas_directory}/#{model_klass_name}.json.schema", file_data
       end
 
       private

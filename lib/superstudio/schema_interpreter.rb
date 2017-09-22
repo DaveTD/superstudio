@@ -46,24 +46,11 @@ module Superstudio
     def interpret_json_schema(json_hash, depth = 0, path_array = [], expected_mappings = [], node_name = 'root')
       level_keys = json_hash.keys
       level_keys.each do |key|
-        # need to put in a big set of ignore keys here, otherwise they might mess up how everything else works
-        # if IGNORE_SET.contains?(key)
-        #   return
-        # end
 
         if key == "type"
           if ["integer", "boolean", "number", "string"].include?(json_hash[key])
             return {depth: depth, path: path_array, name: node_name, node_type: json_hash[key]}
           end
-        end
-
-        if key == "required"
-          # this will be especially important since according to http://spacetelescope.github.io/understanding-json-schema/reference/object.html
-          # each required string must be unique - which gives us an opportunity to use much shorter keys
-        end
-
-        if key == "patternProperties"
-          # this will let this library output uniquely keyed properties - which will be especially useful if we want to create ID keyed hashes
         end
 
         if key == "uniqueItems"

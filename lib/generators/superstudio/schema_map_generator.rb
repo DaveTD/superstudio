@@ -4,6 +4,10 @@ require 'rails/generators/base'
 module Superstudio
   module Generators
     class SchemaMapGenerator < Rails::Generators::NamedBase
+      include Superstudio::SchemaReader
+
+      argument :class_arg, type: 'string', required: false
+
       source_root File.expand_path("../../templates", __FILE__)
 
       desc "Creates a simple json schema mapping class, inferring required json nodes and required columns from a json schema (draft v4)."
@@ -11,7 +15,12 @@ module Superstudio
       def create_map_file
         file_name = name
         file_name = file_name << ".json.schema" unless name.end_with?(".json.schema")
-        class_name = file_name.chomp(".json.schema").classify
+
+        if class_arg.nil?
+          class_name = file_name.chomp(".json.schema").classify
+        else
+          class_name = class_arg.classify
+        end
 
         interpreted_schema = Superstudio::SqlJsonBuilder.new(nil, file_name)
 
@@ -44,7 +53,7 @@ class #{class_name}Mapper < Superstudio::SqlJsonBuilder
         file_data << %Q(
   end
 end)
-        create_file "app/json_schemas/#{class_name.underscore}_mapper.rb", file_data
+        create_file "#{schema_maps_directory}/#{class_name.underscore}_mapper.rb", file_data
       end
     end
   end

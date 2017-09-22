@@ -1,10 +1,10 @@
 #include "json_value_array.h"
 #include "fnv_64.h"
 #include "hash_linked_list.h"
+#include "ss_alloc.h"
 
 void add_to_array(
   JSONDocumentBuilder* builder,
-  uint64_t hash,
   char* string_value,
   unsigned long string_size,
   char* column_name,
@@ -22,15 +22,13 @@ void add_to_array(
   array_search = parent_object->array_values;
   while(!item_added) {
     if (!array_search->set_flag) {
-      array_search->name = (char*)calloc(1, column_name_length);
-      memcpy(array_search->name, column_name, column_name_length);
+      array_search->name = column_name;
       array_search->name_characters = column_name_length;
-
       array_search->quoted = quoted;
 
-      array_search->value_list = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
+      array_search->value_list = (ArrayValueListItem*)ss_alloc(builder->memory_stack, 1, sizeof(ArrayValueListItem));
       array_search->last_list_value = array_search->value_list;
-      array_search->next_value = (ArrayValueJSON*)calloc(1, sizeof(ArrayValueJSON));
+      array_search->next_value = (ArrayValueJSON*)ss_alloc(builder->memory_stack, 1, sizeof(ArrayValueJSON));
 
       array_search->set_flag = 1;
       parent_object->value_array_count += 1;
@@ -66,10 +64,11 @@ void add_to_array(
 
 void initialize_value_item(JSONDocumentBuilder* builder, ArrayValueListItem *target, unsigned long value_characters, char* array_value, unsigned long quoted)
 {
-  target->next_value = (ArrayValueListItem*)calloc(1, sizeof(ArrayValueListItem));
+  target->next_value = (ArrayValueListItem*)ss_alloc(builder->memory_stack, 1, sizeof(ArrayValueListItem));
   target->value_characters = value_characters;
-  target->array_value = (char*)calloc(1, value_characters);
-  memcpy(target->array_value, array_value, value_characters);
+  
+  target->array_value = array_value;
+
   target->set_flag = 1;
 
   builder->json_char_count += value_characters;
@@ -79,7 +78,6 @@ void initialize_value_item(JSONDocumentBuilder* builder, ArrayValueListItem *tar
 void set_value_arrays(
   JSONDocumentBuilder* builder, 
   JSONLevelBuilder* level_definitions, 
-  uint64_t hash, 
   unsigned long column_count, 
   char** row_strings, 
   unsigned long* string_sizes, 
@@ -87,11 +85,10 @@ void set_value_arrays(
   JSONObject* parent_object
   )
 {
-  int counter = 0;
+  unsigned long counter = 0;
     while(counter < column_count) {
       if ((level_definitions->depth_array[counter] == (accessing_depth + 1)) && (level_definitions->do_not_hash[counter])) {
         add_to_array(builder, 
-          hash, 
           row_strings[counter],
           string_sizes[counter],
           level_definitions->column_names[counter],

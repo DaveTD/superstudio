@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "json_builder.h"
 
-void hl_initialize(HashList *list, unsigned long query_rows);
+void hl_initialize(HashList *list, SSMemoryStack* memory_stack, unsigned long query_rows);
 void print_list_details(HashList *list);
 void increment_length(HashList *list);
 uint64_t hl_first(HashList *list);
@@ -17,7 +17,6 @@ JSONObject* find_or_create_node(JSONDocumentBuilder* builder,
   JSONLevelBuilder* child_array_start,
   JSONObject* parent_object, 
   uint64_t hash, 
-  uint64_t parent_hash, 
   unsigned char parent_type, 
   char** row_strings, 
   unsigned long* string_sizes, 
@@ -29,7 +28,8 @@ HashListNode* hl_insert_or_find(HashList *list,
   JSONObject* related_object,
   JSONLevelBuilder* related_parent_level, 
   JSONLevelBuilder* related_single_json_info,
-  JSONLevelBuilder* related_object_info_list
+  JSONLevelBuilder* related_object_info_list,
+  SSMemoryStack* memory_stack
   );
 
 

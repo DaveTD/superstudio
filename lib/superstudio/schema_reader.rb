@@ -4,7 +4,15 @@ module Superstudio
       if ENV['JSON_SCHEMAS_DIRECTORY'].nil?
         Rails.root.join('app', 'json_schemas')
       else
-        ENV['JSON_SCHEMAS_DIRECTORY']
+        Pathname.new(ENV['JSON_SCHEMAS_DIRECTORY'])
+      end
+    end
+
+    def schema_maps_directory
+      if ENV['JSON_SCHEMA_MAPS_DIRECTORY'].nil?
+        Rails.root.join('app', 'json_schemas')
+      else
+        Pathname.new(ENV['JSON_SCHEMA_MAPS_DIRECTORY'])
       end
     end
 

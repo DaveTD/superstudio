@@ -1,7 +1,18 @@
 #include <jsonbroker.h>
+#include "ss_alloc.h"
 
 static void deallocate_broker(void * broker)
 {
+  JSONDocumentBuilder *builder;
+
+  builder = (JSONDocumentBuilder*)broker;
+
+  collapse_stack(builder->memory_stack);
+  free(builder->memory_stack->stack_top);
+  builder->memory_stack->stack_top = NULL;
+  free(builder->memory_stack);
+  builder->memory_stack = NULL;
+
   free(broker);
 }
 
@@ -64,7 +75,7 @@ static VALUE json_broker_set_column_names(VALUE self, VALUE names)
   char* in_loop_string;
   unsigned long in_loop_string_size;
   char* names_array[length];
-  unsigned long* names_sizes[length];
+  unsigned long names_sizes[length];
   unsigned long counter = 0;
 
   while(counter < length) {
@@ -74,7 +85,6 @@ static VALUE json_broker_set_column_names(VALUE self, VALUE names)
     in_loop_string_size = RSTRING_LEN(in_loop_rstring);
     names_array[counter] = in_loop_string;
     names_sizes[counter] = in_loop_string_size;
-    //printf("%s\n", in_loop_string);
     counter++;
   }
   set_column_names_sizes(builder, names_array, names_sizes);
@@ -96,7 +106,7 @@ static VALUE json_broker_set_single_node_names(VALUE self, VALUE keys)
   char* in_loop_string;
   unsigned long in_loop_string_size;
   char* key_array[length];
-  unsigned long* key_sizes[length];
+  unsigned long key_sizes[length];
   unsigned long counter = 0;
 
   while(counter < length) {
@@ -128,7 +138,7 @@ static VALUE json_broker_set_array_node_names(VALUE self, VALUE keys)
   char* in_loop_string;
   unsigned long in_loop_string_size;
   char* key_array[length];
-  unsigned long* key_sizes[length];
+  unsigned long key_sizes[length];
   unsigned long counter = 0;
 
   while(counter < length) {
@@ -290,7 +300,7 @@ static VALUE json_broker_consume_row(VALUE self, VALUE row)
     string_sizes[counter] = RSTRING_LEN(in_loop_rstring);
     counter++;
   }
-  consume_row(builder, row_strings, string_sizes, 0, 0, length, 0, NULL, builder->root_level->depth_array, NULL, 4, 0, builder->root_level->search_list);
+  consume_row(builder, row_strings, string_sizes, 0, 0, length, NULL, NULL, 4, 0, builder->root_level->search_list);
   return Qnil;
 }
 
@@ -299,6 +309,7 @@ static VALUE json_broker_finalize_json(VALUE self)
   JSONDocumentBuilder *builder;
   Data_Get_Struct(self, JSONDocumentBuilder, builder);
   char* final_json = finalize_json(builder);
+
   return rb_str_new2(final_json);
 }
 

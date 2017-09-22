@@ -1,11 +1,11 @@
 #include "json_value.h"
 #include "hash_linked_list.h"
+#include "ss_alloc.h"
   
 void set_key_values(
   JSONDocumentBuilder* builder, 
   unsigned long* string_sizes, 
   char** row, 
-  unsigned long hash, 
   unsigned long visible_depth,
   JSONLevelBuilder* level_definitions,
   JSONObject* parent_object 
@@ -18,7 +18,7 @@ void set_key_values(
 
   while(counter < level_definitions->column_count) {
     if (visible_depth == level_definitions->depth_array[counter]) {
-      if (read_type(visible_depth, level_definitions->mapping_array[counter], level_definitions->mapping_array_lengths[counter], 1) == '1') {
+      if (read_type(visible_depth, level_definitions->mapping_array[counter], level_definitions->mapping_array_lengths[counter]) == '1') {
         found = 0;
 
         if (parent_object->single_values) {
@@ -44,20 +44,18 @@ void set_key_values(
           builder->json_char_count += string_sizes[visible_counter]; // Add space for the value
           
           if (!parent_object->single_values) {
-            parent_object->single_values = (SingleValueJSON*)calloc(1, sizeof(SingleValueJSON));
+            parent_object->single_values = (SingleValueJSON*)ss_alloc(builder->memory_stack, 1, sizeof(SingleValueJSON));
             parent_object->last_single_value = parent_object->single_values;
           }
 
           if (parent_object->single_values->set_flag) {
             parent_object->last_single_value = parent_object->last_single_value->next_value;
           }
-          parent_object->last_single_value->next_value = (SingleValueJSON*)calloc(1, sizeof(SingleValueJSON));
-          parent_object->last_single_value->set_flag = 1;
+          parent_object->last_single_value->next_value = (SingleValueJSON*)ss_alloc(builder->memory_stack, 1, sizeof(SingleValueJSON));
+          parent_object->last_single_value->set_flag = 1;          
+          parent_object->last_single_value->name = level_definitions->column_names[counter];
 
-          parent_object->last_single_value->name = (char*)calloc(1, level_definitions->column_name_lengths[counter] + 1);
-          memcpy(parent_object->last_single_value->name, level_definitions->column_names[counter], (level_definitions->column_name_lengths[counter]) + 1);
-          
-          parent_object->last_single_value->value = (char*)calloc(1, string_sizes[counter]);
+          parent_object->last_single_value->value = (char*)ss_alloc(builder->memory_stack, 1, string_sizes[counter]);
           memcpy(parent_object->last_single_value->value, row[counter], (string_sizes[counter]));
 
           parent_object->last_single_value->value_characters = string_sizes[visible_counter];
@@ -65,11 +63,9 @@ void set_key_values(
           parent_object->last_single_value->quoted = level_definitions->quote_array[visible_counter];
         }
 
-        /* THIS IS PROBABLY CAUSING EXTRA MEMORY ALLOCATION COME BACK TO IT AFTER */
         if (level_definitions->column_count != (counter + 1)) {
           builder->json_char_count += 1; // Add a space for the comma, as long as this not the last item in the object
         }
-        /* THIS IS PROBABLY CAUSING EXTRA MEMORY ALLOCATION COME BACK TO IT AFTER */
       }
       visible_counter++;
     }
