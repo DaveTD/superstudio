@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'superstudio'
-  s.version     = '0.9.0'
-  s.date        = '2017-09-24'
+  s.version     = '0.9.8'
+  s.date        = '2017-09-25'
   s.summary     = "An alternative way of thinking about creating JSON output: life without creating ruby objects."
   s.description = ""
   s.authors     = ["David Dawson"]

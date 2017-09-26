@@ -60,7 +60,11 @@ module Superstudio
       working_row = []
 
       @human_readable_tags.each_with_index do |value, index|
-        working_row << (@json_nodes[value.to_sym].to_s)
+        if (@quoted_tags[index] == 0 && @json_nodes[value.to_sym].blank?)
+          working_row << "null"
+        else
+          working_row << (@json_nodes[value.to_sym].to_s)
+        end
       end
       return working_row
     end
