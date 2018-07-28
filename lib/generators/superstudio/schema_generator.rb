@@ -19,7 +19,7 @@ module Superstudio
         model_klass.columns.each do |column|
           column_type = column.type
           column_type = :string if [:datetime].include? column.type
-          column_type = :number if [:decimal].include? column.type
+          column_type = :number if [:decimal, :float].include? column.type
           model_columns[column.name] = column_type
         end
 
